@@ -1,27 +1,48 @@
 import 'dart:async';
+import 'dart:math';
 
 import 'package:flutter/foundation.dart';
 
+import '../config/game_config.dart';
+import '../models/gem.dart';
 import '../models/move_session.dart';
+import '../models/mystery_box.dart';
 import '../models/shoe.dart';
 import '../models/shoe_inventory.dart';
 import '../services/energy_manager.dart';
+import '../services/gem_service.dart';
 import '../services/location_provider.dart';
 import '../services/reward_engine.dart';
+import '../services/shop_service.dart';
 import '../services/storage.dart';
 
-/// アプリ全体の状態。インベントリ・エナジー・ポイント残高・ムーブ進行を持つ。
+/// アプリ全体の状態。
+/// インベントリ・ジェム・ボックス・エナジー・残高・ショップ・ムーブ進行を持つ。
 class AppState extends ChangeNotifier {
-  AppState({Storage? storage}) : _storage = storage ?? Storage();
+  AppState({Storage? storage, GemService? gemService, ShopService? shopService})
+      : _storage = storage ?? Storage(),
+        _gemService = gemService ?? GemService(),
+        _shopService = shopService ?? ShopService();
 
   final Storage _storage;
+  final GemService _gemService;
+  final ShopService _shopService;
 
   ShoeInventory inventory = ShoeInventory();
   EnergyManager energyManager =
       EnergyManager(energy: 0, lastUpdateUtc: DateTime.now().toUtc());
   List<MoveSession> sessions = [];
+  List<Gem> gems = [];
+  List<MysteryBox> boxes = [];
+  List<ShopListing> shopCatalog = [];
   double spBalance = 0;
   double gpBalance = 0;
+  String userName = 'RUNNER';
+  double totalKm = 0;
+
+  // デイリー獲得SP(JST4:00リセット)
+  String _dailyKey = '';
+  double dailyEarnedSp = 0;
 
   String? selectedShoeId;
   EarnMode selectedMode = EarnMode.sp;
@@ -32,6 +53,7 @@ class AppState extends ChangeNotifier {
 
   // ---- ムーブ進行中の状態 ----
   bool get isMoving => _engine != null;
+  bool isPaused = false;
   RewardEngine? _engine;
   LocationProvider? _provider;
   StreamSubscription<LocationSample>? _locationSub;
@@ -39,6 +61,7 @@ class AppState extends ChangeNotifier {
   DateTime? _moveStartedAt;
   int elapsedSeconds = 0;
   double consumedEnergyThisMove = 0;
+  double consumedDurabilityThisMove = 0;
   bool gpsReceived = false;
   String? locationError;
   MoveSession? lastResult;
@@ -46,6 +69,44 @@ class AppState extends ChangeNotifier {
   RewardEngine? get engine => _engine;
 
   Shoe? get selectedShoe => inventory.byId(selectedShoeId);
+
+  double get dailyRemainingSp =>
+      max(0, GameConfig.dailySpCap - dailyEarnedSp);
+
+  /// シューズに装着中のジェム一覧。
+  List<Gem> equippedGems(String shoeId) =>
+      gems.where((g) => g.equippedShoeId == shoeId).toList();
+
+  /// 属性ごとの装着ジェム(1属性1枠)。
+  Gem? equippedGemOf(String shoeId, GemType type) {
+    for (final gem in gems) {
+      if (gem.equippedShoeId == shoeId && gem.type == type) return gem;
+    }
+    return null;
+  }
+
+  /// 未装着ジェム(種類別)。
+  List<Gem> unequippedGems(GemType type) =>
+      gems.where((g) => g.equippedShoeId == null && g.type == type).toList();
+
+  // ---- 起動時ロード ----
+
+  static String dayKeyFor(DateTime utc) {
+    // JST4:00を1日の境界とする
+    final jst = utc.add(const Duration(hours: 9));
+    final shifted =
+        jst.subtract(Duration(hours: GameConfig.dailyResetHourJst));
+    return '${shifted.year}-${shifted.month}-${shifted.day}';
+  }
+
+  void _rolloverDailyIfNeeded() {
+    final key = dayKeyFor(DateTime.now().toUtc());
+    if (key != _dailyKey) {
+      _dailyKey = key;
+      dailyEarnedSp = 0;
+      _storage.saveDaily(dayKey: _dailyKey, sp: dailyEarnedSp);
+    }
+  }
 
   Future<void> load() async {
     final savedInventory = await _storage.loadInventory();
@@ -56,6 +117,7 @@ class AppState extends ChangeNotifier {
           id: 'shoe-initial',
           type: ShoeType.walker,
           rarity: Rarity.common,
+          serial: 778894978,
         ),
       ]);
       await _storage.saveInventory(inventory);
@@ -73,43 +135,36 @@ class AppState extends ChangeNotifier {
           );
     }
     sessions = await _storage.loadSessions();
+    gems = await _storage.loadGems();
+    boxes = await _storage.loadBoxes();
     final balances = await _storage.loadBalances();
     spBalance = balances.sp;
     gpBalance = balances.gp;
+    final profile = await _storage.loadProfile();
+    userName = profile.name;
+    totalKm = profile.totalKm;
+
+    final daily = await _storage.loadDaily();
+    _dailyKey = daily?.dayKey ?? '';
+    dailyEarnedSp = daily?.sp ?? 0;
+    _rolloverDailyIfNeeded();
+
+    shopCatalog = await _storage.loadShopCatalog();
+    if (shopCatalog.isEmpty) {
+      shopCatalog = _shopService.generateCatalog();
+      await _storage.saveShopCatalog(shopCatalog);
+    }
 
     energyManager.applyRefills(DateTime.now().toUtc(), inventory.energyCap);
     await _storage.saveEnergy(energyManager);
 
-    selectedShoeId ??= inventory.shoes.isNotEmpty ? inventory.shoes.first.id : null;
+    selectedShoeId ??=
+        inventory.shoes.isNotEmpty ? inventory.shoes.first.id : null;
     loaded = true;
     notifyListeners();
   }
 
-  // ---- インベントリ操作(プロトタイプ用の擬似ミント) ----
-
-  Future<void> addShoe(ShoeType type, Rarity rarity) async {
-    final shoe = Shoe(
-      id: 'shoe-${DateTime.now().microsecondsSinceEpoch}',
-      type: type,
-      rarity: rarity,
-    );
-    inventory.shoes.add(shoe);
-    selectedShoeId ??= shoe.id;
-    await _storage.saveInventory(inventory);
-    _refreshEnergy();
-    notifyListeners();
-  }
-
-  Future<void> removeShoe(String id) async {
-    inventory.shoes.removeWhere((s) => s.id == id);
-    if (selectedShoeId == id) {
-      selectedShoeId =
-          inventory.shoes.isNotEmpty ? inventory.shoes.first.id : null;
-    }
-    await _storage.saveInventory(inventory);
-    _refreshEnergy();
-    notifyListeners();
-  }
+  // ---- シューズ操作 ----
 
   void selectShoe(String id) {
     selectedShoeId = id;
@@ -120,6 +175,142 @@ class AppState extends ChangeNotifier {
     selectedMode = mode;
     notifyListeners();
   }
+
+  Future<void> removeShoe(String id) async {
+    inventory.shoes.removeWhere((s) => s.id == id);
+    for (final gem in gems) {
+      if (gem.equippedShoeId == id) gem.equippedShoeId = null;
+    }
+    if (selectedShoeId == id) {
+      selectedShoeId =
+          inventory.shoes.isNotEmpty ? inventory.shoes.first.id : null;
+    }
+    await _storage.saveInventory(inventory);
+    await _storage.saveGems(gems);
+    _refreshEnergy();
+    notifyListeners();
+  }
+
+  /// レベルアップ(SP消費・即時)。成功時true。
+  Future<bool> levelUpShoe(Shoe shoe) async {
+    if (shoe.level >= GameConfig.maxLevel) return false;
+    final cost = GameConfig.levelUpCost(shoe.level);
+    if (spBalance < cost) return false;
+    spBalance -= cost;
+    shoe.level += 1;
+    await _storage.saveInventory(inventory);
+    await _storage.saveBalances(sp: spBalance, gp: gpBalance);
+    notifyListeners();
+    return true;
+  }
+
+  /// リペア費用(耐久degree量に対して)。
+  double repairCost(Shoe shoe, double amount) =>
+      amount * GameConfig.repairCostPerPoint(shoe.level);
+
+  /// リペア(SP消費で耐久回復)。成功時true。
+  Future<bool> repairShoe(Shoe shoe, double amount) async {
+    final target = min(100.0, shoe.durability + amount);
+    final actual = target - shoe.durability;
+    if (actual <= 0) return false;
+    final cost = repairCost(shoe, actual);
+    if (spBalance < cost) return false;
+    spBalance -= cost;
+    shoe.durability = target;
+    await _storage.saveInventory(inventory);
+    await _storage.saveBalances(sp: spBalance, gp: gpBalance);
+    notifyListeners();
+    return true;
+  }
+
+  // ---- ジェム操作 ----
+
+  /// 装着(同属性の既装着があれば入れ替え)。
+  Future<void> equipGem(String shoeId, Gem gem) async {
+    final current = equippedGemOf(shoeId, gem.type);
+    current?.equippedShoeId = null;
+    gem.equippedShoeId = shoeId;
+    await _storage.saveGems(gems);
+    notifyListeners();
+  }
+
+  Future<void> unequipGem(Gem gem) async {
+    gem.equippedShoeId = null;
+    await _storage.saveGems(gems);
+    notifyListeners();
+  }
+
+  /// ジェム強化。結果(成功したジェム or null)を返す。
+  /// 素材3個+費用SPを消費する。条件不足時は例外。
+  Future<({Gem? result, double cost})> upgradeGems(
+      GemType type, int level) async {
+    final materials = unequippedGems(type)
+        .where((g) => g.level == level)
+        .take(3)
+        .toList();
+    if (materials.length < 3) {
+      throw StateError('素材が足りません(同種同Lv3個必要)');
+    }
+    final cost = GameConfig.gemUpgradeCost(level);
+    if (spBalance < cost) {
+      throw StateError('SPが足りません');
+    }
+    spBalance -= cost;
+    for (final m in materials) {
+      gems.remove(m);
+    }
+    final result = _gemService.upgrade(materials);
+    if (result != null) gems.add(result);
+    await _storage.saveGems(gems);
+    await _storage.saveBalances(sp: spBalance, gp: gpBalance);
+    notifyListeners();
+    return (result: result, cost: cost);
+  }
+
+  /// 強化の成功率表示用。
+  double gemSuccessRate(int level) => _gemService.successRate(level);
+
+  // ---- ミステリーボックス ----
+
+  /// 開封: ボックスを消費してジェムLv1を得る。
+  Future<Gem> openBox(MysteryBox box) async {
+    boxes.remove(box);
+    final gem = _gemService.dropGem();
+    gems.add(gem);
+    await _storage.saveBoxes(boxes);
+    await _storage.saveGems(gems);
+    notifyListeners();
+    return gem;
+  }
+
+  // ---- ショップ ----
+
+  /// 購入。残高不足ならfalse。
+  Future<bool> buyShoe(ShopListing listing) async {
+    if (spBalance < listing.priceSp) return false;
+    if (!shopCatalog.contains(listing)) return false;
+    spBalance -= listing.priceSp;
+    shopCatalog.remove(listing);
+    inventory.shoes.add(listing.shoe);
+    selectedShoeId ??= listing.shoe.id;
+    // 補充
+    shopCatalog.add(_shopService.generateListing());
+    shopCatalog.sort((a, b) => a.priceSp.compareTo(b.priceSp));
+    await _storage.saveInventory(inventory);
+    await _storage.saveBalances(sp: spBalance, gp: gpBalance);
+    await _storage.saveShopCatalog(shopCatalog);
+    _refreshEnergy();
+    notifyListeners();
+    return true;
+  }
+
+  Future<void> refreshShop() async {
+    shopCatalog = _shopService.generateCatalog();
+    await _storage.saveShopCatalog(shopCatalog);
+    notifyListeners();
+  }
+
+  // ---- 設定 ----
 
   void setSimulationMode(bool value) {
     simulationMode = value;
@@ -140,34 +331,53 @@ class AppState extends ChangeNotifier {
     _storage.saveEnergy(energyManager);
   }
 
+  /// 次のエナジー回復時刻までの残り時間。
+  Duration timeToNextRefill() {
+    final nowJst = DateTime.now().toUtc().add(const Duration(hours: 9));
+    final hours = GameConfig.refillHoursJst;
+    for (final h in hours) {
+      final candidate = DateTime(nowJst.year, nowJst.month, nowJst.day, h);
+      if (candidate.isAfter(nowJst)) return candidate.difference(nowJst);
+    }
+    final tomorrow = DateTime(
+        nowJst.year, nowJst.month, nowJst.day + 1, hours.first);
+    return tomorrow.difference(nowJst);
+  }
+
   // ---- ムーブ ----
 
   bool get canStart =>
-      !isMoving &&
-      selectedShoe != null &&
-      energyManager.energy > 0;
+      !isMoving && selectedShoe != null && energyManager.energy > 0;
 
   void startMove() {
     final shoe = selectedShoe;
     if (shoe == null || isMoving) return;
+    _rolloverDailyIfNeeded();
     _refreshEnergy();
     if (energyManager.isEmpty) {
       notifyListeners();
       return;
     }
 
-    _engine = RewardEngine(shoe: shoe, mode: selectedMode);
+    _engine = RewardEngine(
+      shoe: shoe,
+      mode: selectedMode,
+      equippedGems: equippedGems(shoe.id),
+    );
     _provider = simulationMode
         ? SimulatedLocationProvider(targetSpeedKmh: simSpeedKmh)
         : GpsLocationProvider();
     _moveStartedAt = DateTime.now();
     elapsedSeconds = 0;
     consumedEnergyThisMove = 0;
+    consumedDurabilityThisMove = 0;
+    isPaused = false;
     gpsReceived = false;
     locationError = null;
     lastResult = null;
 
     _locationSub = _provider!.start().listen((sample) {
+      if (isPaused) return;
       gpsReceived = true;
       _engine?.processSample(sample);
       notifyListeners();
@@ -178,14 +388,34 @@ class AppState extends ChangeNotifier {
 
     _ticker = Timer.periodic(const Duration(seconds: 1), (_) {
       final engine = _engine;
-      if (engine == null) return;
+      if (engine == null || isPaused) return;
       elapsedSeconds++;
       final used = energyManager.consume(1);
       consumedEnergyThisMove += used;
-      engine.tick(1, energyAvailable: !energyManager.isEmpty || used > 0);
+
+      final earned = engine.tick(
+        1,
+        energyAvailable: used > 0,
+        dailyRemaining:
+            engine.mode == EarnMode.sp ? dailyRemainingSp : double.infinity,
+      );
+      if (engine.mode == EarnMode.sp) dailyEarnedSp += earned;
+
+      final decay = engine.durabilityDecay(1);
+      final shoe = engine.shoe;
+      final actualDecay = min(shoe.durability, decay);
+      shoe.durability -= actualDecay;
+      consumedDurabilityThisMove += actualDecay;
+
       notifyListeners();
     });
 
+    notifyListeners();
+  }
+
+  void togglePause() {
+    if (!isMoving) return;
+    isPaused = !isPaused;
     notifyListeners();
   }
 
@@ -201,6 +431,20 @@ class AppState extends ChangeNotifier {
     await _provider?.stop();
     _provider = null;
 
+    // ボックスドロップ判定(幸運値で補正)
+    final luck = engine.shoe.totalAttr(ShoeAttr.luck, equippedGems(engine.shoe.id));
+    final drops = _gemService.rollBoxDrops(
+      movedSeconds: elapsedSeconds,
+      luck: luck,
+      freeSlots: GameConfig.boxSlots - boxes.length,
+    );
+    for (var i = 0; i < drops; i++) {
+      boxes.add(MysteryBox(
+        id: 'box-${DateTime.now().microsecondsSinceEpoch}-$i',
+        obtainedAt: DateTime.now(),
+      ));
+    }
+
     final session = MoveSession(
       startedAt: startedAt,
       endedAt: DateTime.now(),
@@ -210,6 +454,8 @@ class AppState extends ChangeNotifier {
       durationSeconds: elapsedSeconds,
       earnedPoints: engine.earnedPoints,
       consumedEnergy: consumedEnergyThisMove,
+      consumedDurability: consumedDurabilityThisMove,
+      boxesObtained: drops,
       rejectedSamples: engine.rejectedSamples,
     );
 
@@ -220,14 +466,20 @@ class AppState extends ChangeNotifier {
         gpBalance += engine.earnedPoints;
     }
 
+    totalKm += engine.distanceMeters / 1000;
     sessions.insert(0, session);
     lastResult = session;
     _engine = null;
     _moveStartedAt = null;
+    isPaused = false;
 
     await _storage.saveSessions(sessions);
     await _storage.saveEnergy(energyManager);
     await _storage.saveBalances(sp: spBalance, gp: gpBalance);
+    await _storage.saveInventory(inventory);
+    await _storage.saveBoxes(boxes);
+    await _storage.saveDaily(dayKey: _dailyKey, sp: dailyEarnedSp);
+    await _storage.saveProfile(name: userName, totalKm: totalKm);
 
     notifyListeners();
     return session;

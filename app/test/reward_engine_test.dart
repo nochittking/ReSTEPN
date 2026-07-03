@@ -1,6 +1,7 @@
 import 'dart:math';
 
 import 'package:flutter_test/flutter_test.dart';
+import 'package:restep_mvp/models/gem.dart';
 import 'package:restep_mvp/models/move_session.dart';
 import 'package:restep_mvp/models/shoe.dart';
 import 'package:restep_mvp/services/location_provider.dart';
@@ -49,32 +50,42 @@ void main() {
     });
   });
 
-  group('ポイント付与', () {
-    test('レンジ内: SPモードは1分で1.0ポイント(コモン)', () {
+  group('ポイント付与(SP/分 = 基礎 × (1+効率/100))', () {
+    test('コモンLv0(効率1.0)のSPレートは1分1.01', () {
       final engine = RewardEngine(shoe: _walker(), mode: EarnMode.sp);
       for (final s in samplesAtSpeed(4.5, 5)) {
         engine.processSample(s);
       }
       final earned = engine.tick(60, energyAvailable: true);
-      expect(earned, closeTo(1.0, 1e-9));
-      expect(engine.earnedPoints, closeTo(1.0, 1e-9));
+      expect(earned, closeTo(1.01, 1e-9));
     });
 
-    test('GPモードは1分で0.5ポイント', () {
+    test('GPモードは半分のレート', () {
       final engine = RewardEngine(shoe: _walker(), mode: EarnMode.gp);
       for (final s in samplesAtSpeed(4.5, 5)) {
         engine.processSample(s);
       }
-      expect(engine.tick(60, energyAvailable: true), closeTo(0.5, 1e-9));
+      expect(engine.tick(60, energyAvailable: true), closeTo(0.505, 1e-9));
     });
 
-    test('レジェンダリーは獲得倍率1.4', () {
+    test('レジェンダリー(効率45)はレートが1.45倍', () {
       final engine =
           RewardEngine(shoe: _walker(Rarity.legendary), mode: EarnMode.sp);
       for (final s in samplesAtSpeed(4.5, 5)) {
         engine.processSample(s);
       }
-      expect(engine.tick(60, energyAvailable: true), closeTo(1.4, 1e-9));
+      expect(engine.tick(60, energyAvailable: true), closeTo(1.45, 1e-9));
+    });
+
+    test('効率ジェム装着でレートが上がる', () {
+      final gem = Gem(id: 'g1', type: GemType.efficiency, level: 1);
+      final engine = RewardEngine(
+          shoe: _walker(), mode: EarnMode.sp, equippedGems: [gem]);
+      for (final s in samplesAtSpeed(4.5, 5)) {
+        engine.processSample(s);
+      }
+      // 効率 = (1.0+2.0)×1.05 = 3.15 → レート1.0315
+      expect(engine.tick(60, energyAvailable: true), closeTo(1.0315, 1e-9));
     });
 
     test('レンジ外では付与されない', () {
@@ -91,6 +102,43 @@ void main() {
         engine.processSample(s);
       }
       expect(engine.tick(60, energyAvailable: false), 0);
+    });
+
+    test('デイリー残量までしか付与されない', () {
+      final engine = RewardEngine(shoe: _walker(), mode: EarnMode.sp);
+      for (final s in samplesAtSpeed(4.5, 5)) {
+        engine.processSample(s);
+      }
+      final earned =
+          engine.tick(60, energyAvailable: true, dailyRemaining: 0.5);
+      expect(earned, closeTo(0.5, 1e-9));
+      expect(
+          engine.tick(60, energyAvailable: true, dailyRemaining: 0), 0);
+    });
+  });
+
+  group('耐久度', () {
+    test('耐久50未満で獲得レート半減', () {
+      final shoe = _walker()..durability = 40;
+      final engine = RewardEngine(shoe: shoe, mode: EarnMode.sp);
+      for (final s in samplesAtSpeed(4.5, 5)) {
+        engine.processSample(s);
+      }
+      expect(engine.tick(60, energyAvailable: true), closeTo(0.505, 1e-9));
+    });
+
+    test('耐久消費は回復値で緩和される(コモンLv0: 0.995倍)', () {
+      final engine = RewardEngine(shoe: _walker(), mode: EarnMode.sp);
+      // 0.3/分 × (1 - 1.0/200) = 0.29850
+      expect(engine.durabilityDecay(60), closeTo(0.2985, 1e-6));
+    });
+
+    test('回復ジェムで耐久消費が減る', () {
+      final gem = Gem(id: 'g1', type: GemType.resilience, level: 3);
+      final engine = RewardEngine(
+          shoe: _walker(), mode: EarnMode.sp, equippedGems: [gem]);
+      // 回復 = (1+25)×1.15 = 29.9 → 係数 1-29.9/200 = 0.8505
+      expect(engine.durabilityDecay(60), closeTo(0.3 * 0.8505, 1e-6));
     });
   });
 
@@ -132,21 +180,18 @@ void main() {
       for (final s in normal) {
         engine.processSample(s);
       }
-      // 瞬間移動1回
       final jump = LocationSample(
         latitude: normal.last.latitude + 0.002,
         longitude: normal.last.longitude,
         timestamp: normal.last.timestamp.add(const Duration(seconds: 1)),
       );
       engine.processSample(jump);
-      // 瞬間移動先から正常な移動を再開
       final resumed = samplesAtSpeed(4.5, 3,
           start: jump.timestamp.add(const Duration(seconds: 1)));
       var acceptedCount = 0;
       for (final s in resumed) {
         if (engine.processSample(s)) acceptedCount++;
       }
-      // 再開1サンプル目は基準点との距離が大きく棄却され得るが、以降は受理される
       expect(acceptedCount, greaterThanOrEqualTo(2));
     });
   });

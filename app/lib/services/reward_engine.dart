@@ -2,6 +2,7 @@ import 'dart:collection';
 import 'dart:math';
 
 import '../config/game_config.dart';
+import '../models/gem.dart';
 import '../models/move_session.dart';
 import '../models/shoe.dart';
 import 'location_provider.dart';
@@ -11,11 +12,19 @@ import 'location_provider.dart';
 ///
 /// - 距離/速度の更新はサンプル駆動([processSample])
 /// - ポイント付与とエナジー消費の時間積算はタイマー駆動([tick])
+///
+/// 獲得レート: 基礎レート × (1 + 効率値/100)。
+/// 耐久度が閾値未満のときは半減ペナルティ。
 class RewardEngine {
-  RewardEngine({required this.shoe, required this.mode});
+  RewardEngine({
+    required this.shoe,
+    required this.mode,
+    List<Gem> equippedGems = const [],
+  }) : _gems = equippedGems;
 
   final Shoe shoe;
   final EarnMode mode;
+  final List<Gem> _gems;
 
   final Queue<double> _speedWindow = Queue();
   LocationSample? _lastAccepted;
@@ -31,12 +40,20 @@ class RewardEngine {
 
   bool get inRange => shoe.type.inRange(currentSpeedKmh);
 
-  double get _pointsPerMinute {
+  /// 効率値(ジェム補正込み)
+  double get efficiency => shoe.totalAttr(ShoeAttr.efficiency, _gems);
+
+  /// 現在の獲得レート(ポイント/分)。耐久度ペナルティ込み。
+  double get pointsPerMinute {
     final base = switch (mode) {
       EarnMode.sp => GameConfig.spPerMinuteBase,
       EarnMode.gp => GameConfig.gpPerMinuteBase,
     };
-    return base * shoe.rarity.earnMultiplier;
+    var rate = base * (1 + efficiency / 100);
+    if (shoe.durability < GameConfig.durabilityPenaltyThreshold) {
+      rate *= GameConfig.durabilityPenaltyFactor;
+    }
+    return rate;
   }
 
   /// GPSサンプルを検証して距離・速度を更新する。
@@ -78,13 +95,25 @@ class RewardEngine {
   }
 
   /// 経過時間 [dtSeconds] 分のポイントを付与する。
-  /// 適正速度レンジ外、またはエナジー切れ([energyAvailable]=false)の間は付与しない。
+  /// レンジ外・エナジー切れ・デイリー上限到達([dailyRemaining]=0)の間は付与しない。
   /// 戻り値はこのtickで加算されたポイント。
-  double tick(double dtSeconds, {required bool energyAvailable}) {
-    if (!energyAvailable || !inRange) return 0;
-    final earned = _pointsPerMinute / 60.0 * dtSeconds;
+  double tick(
+    double dtSeconds, {
+    required bool energyAvailable,
+    double dailyRemaining = double.infinity,
+  }) {
+    if (!energyAvailable || !inRange || dailyRemaining <= 0) return 0;
+    var earned = pointsPerMinute / 60.0 * dtSeconds;
+    earned = min(earned, dailyRemaining);
     earnedPoints += earned;
     return earned;
+  }
+
+  /// 経過時間分の耐久度消費量を返す(回復値で緩和)。
+  double durabilityDecay(double dtSeconds) {
+    final resilience = shoe.totalAttr(ShoeAttr.resilience, _gems);
+    final factor = (1 - resilience / 200).clamp(0.25, 1.0);
+    return GameConfig.durabilityPerMinute / 60.0 * dtSeconds * factor;
   }
 
   static double _haversineMeters(

@@ -1,3 +1,5 @@
+import '../config/game_config.dart';
+
 /// 報酬モード。ムーブ開始前にどちらか一方を選択する(同時獲得は不可)。
 enum EarnMode {
   sp('SP', 'ステップポイント'),
@@ -21,6 +23,8 @@ class MoveSession {
     required this.earnedPoints,
     required this.consumedEnergy,
     required this.rejectedSamples,
+    this.consumedDurability = 0,
+    this.boxesObtained = 0,
   });
 
   final DateTime startedAt;
@@ -31,6 +35,8 @@ class MoveSession {
   final int durationSeconds;
   final double earnedPoints;
   final double consumedEnergy;
+  final double consumedDurability;
+  final int boxesObtained;
 
   /// チート検出(瞬間移動・速度スパイク)で棄却したGPSサンプル数
   final int rejectedSamples;
@@ -38,6 +44,16 @@ class MoveSession {
   double get averageSpeedKmh {
     if (durationSeconds == 0) return 0;
     return distanceMeters / durationSeconds * 3.6;
+  }
+
+  /// 推定歩数(距離÷歩幅)
+  int get estimatedSteps =>
+      (distanceMeters / GameConfig.metersPerStep).round();
+
+  /// 1分あたりの獲得ポイント
+  double get pointsPerMinute {
+    if (durationSeconds == 0) return 0;
+    return earnedPoints / (durationSeconds / 60.0);
   }
 
   Map<String, dynamic> toJson() => {
@@ -49,6 +65,8 @@ class MoveSession {
         'durationSeconds': durationSeconds,
         'earnedPoints': earnedPoints,
         'consumedEnergy': consumedEnergy,
+        'consumedDurability': consumedDurability,
+        'boxesObtained': boxesObtained,
         'rejectedSamples': rejectedSamples,
       };
 
@@ -61,6 +79,9 @@ class MoveSession {
         durationSeconds: json['durationSeconds'] as int,
         earnedPoints: (json['earnedPoints'] as num).toDouble(),
         consumedEnergy: (json['consumedEnergy'] as num).toDouble(),
+        consumedDurability:
+            (json['consumedDurability'] as num?)?.toDouble() ?? 0,
+        boxesObtained: json['boxesObtained'] as int? ?? 0,
         rejectedSamples: json['rejectedSamples'] as int? ?? 0,
       );
 }
