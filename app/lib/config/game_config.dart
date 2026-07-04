@@ -95,6 +95,37 @@ class GameConfig {
   static const double boxBaseChancePer10Min = 0.05;
   static const double boxChancePerLuck = 0.002;
 
+  // ---- ミント(2足から新しい靴を生成) ----
+
+  /// ミント可能条件: レベル5以上・ミント回数7未満
+  static const int mintMinLevel = 5;
+  static const int mintMaxCount = 7;
+
+  /// ミント基礎費用(レアリティ別、1足ぶん)。実費用は両親それぞれ
+  /// 基礎 × (ミント済み回数+1) の合算。
+  static const List<double> mintBaseSp = [50, 100, 200, 400, 800];
+  static const List<double> mintBaseGp = [10, 20, 40, 80, 160];
+
+  /// 両親が同レアリティのとき、この確率で1段上のレアリティが生まれる
+  static const double mintRarityUpChance = 0.10;
+
+  // ---- フュージョン(同レアリティ5足 → 上位レアリティ挑戦) ----
+
+  static const int enhanceMaterialCount = 5;
+
+  /// 費用(素材レアリティ別)。コモン/アンコモンは参考UIの数値に準拠。
+  static const List<double> enhanceCostSp = [360, 1360, 4000, 12000];
+  static const List<double> enhanceCostGp = [40, 240, 800, 2400];
+
+  /// 成功率(成功=1段上のレアリティ、失敗=同レアリティの新しい靴)
+  static const List<double> enhanceSuccessRate = [0.35, 0.30, 0.25, 0.20];
+
+  // ---- 売却 ----
+
+  /// 売却価格 = ショップ基準価格 × 0.4 + Lv × 5
+  static const double sellPriceFactor = 0.4;
+  static const double sellPricePerLevel = 5.0;
+
   // ---- ショップ ----
 
   /// ショップ掲載数

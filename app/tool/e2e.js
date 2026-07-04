@@ -25,6 +25,10 @@ function buildSeed() {
       { id: 'shoe-2', type: 'jogger', rarity: 'rare', level: 12, durability: 88.5, mintCount: 2, serial: 311458571 },
       { id: 'shoe-3', type: 'runner', rarity: 'epic', level: 8, durability: 100.0, mintCount: 0, serial: 45441 },
       { id: 'shoe-4', type: 'allRounder', rarity: 'legendary', level: 22, durability: 100.0, mintCount: 7, serial: 9441 },
+      { id: 'shoe-5', type: 'walker', rarity: 'common', level: 2, durability: 100.0, mintCount: 0, serial: 605516131 },
+      { id: 'shoe-6', type: 'jogger', rarity: 'common', level: 0, durability: 100.0, mintCount: 0, serial: 21466847 },
+      { id: 'shoe-7', type: 'runner', rarity: 'common', level: 1, durability: 100.0, mintCount: 0, serial: 53598989 },
+      { id: 'shoe-8', type: 'walker', rarity: 'common', level: 6, durability: 100.0, mintCount: 1, serial: 72132079 },
     ],
     'restep.gems': [
       { id: 'gem-e1', type: 'efficiency', level: 1, equippedShoeId: null },
@@ -96,12 +100,27 @@ function buildSeed() {
     await page.screenshot({ path: `${SHOT_DIR}/${name}.png` });
     console.log('screenshot:', name);
   };
-  const tapRole = async (name, { nth = 0 } = {}) => {
-    await page
-      .getByRole('button', { name })
-      .nth(nth)
-      .evaluate((el) => el.click());
-    await page.waitForTimeout(1200);
+  const tapRole = async (name, { nth = 0, exact = false } = {}) => {
+    try {
+      await page
+        .getByRole('button', { name, exact })
+        .nth(nth)
+        .evaluate((el) => el.click(), { timeout: 8000 });
+    } catch (e) {
+      console.log('  (skip tap:', name, ')');
+    }
+    await page.waitForTimeout(1000);
+  };
+  const tapRoleLast = async (name, { exact = false } = {}) => {
+    try {
+      await page
+        .getByRole('button', { name, exact })
+        .last()
+        .evaluate((el) => el.click(), { timeout: 8000 });
+    } catch (e) {
+      console.log('  (skip tapLast:', name, ')');
+    }
+    await page.waitForTimeout(1000);
   };
   const tapText = async (text, { nth = 0, exact = false } = {}) => {
     await page
@@ -157,6 +176,50 @@ function buildSeed() {
   // 9. ショップ
   await tapRole('ショップ');
   await shot('12-shop');
+
+  // 10. ミント(レア ジョガー Lv12 を親に)
+  await tapRole('シューズ');
+  await page.waitForTimeout(800);
+  await tapRole('シューズ'); // セグメントを「シューズ」に戻す
+  await page.waitForTimeout(800);
+  await tapRole('レア ジョガー');
+  await page.waitForTimeout(800);
+  await tapRole('ミント', { exact: true });
+  await page.waitForTimeout(1000);
+  await shot('13-mint');
+  await tapRole('相方のシューズを選択');
+  await page.waitForTimeout(800);
+  await shot('14-mint-picker');
+  await tapRole('候補 コモン ウォーカー');
+  await tapRole('決定');
+  await page.waitForTimeout(800);
+  await shot('15-mint-ready');
+  await tapRoleLast('ミント', { exact: true });
+  await page.waitForTimeout(1500);
+  await shot('16-mint-result');
+  await tapRoleLast('OK');
+  await page.waitForTimeout(800);
+  await tapRole('戻る'); // ミント画面からシューズ詳細へ
+  await page.waitForTimeout(600);
+  await tapRole('戻る'); // 詳細からシューズタブへ
+  await page.waitForTimeout(800);
+
+  // 11. フュージョン(コモン5足)。適当なコモン靴の詳細→フュージョン
+  await tapRole('コモン ウォーカー');
+  await page.waitForTimeout(800);
+  await tapRole('フュージョン', { exact: true });
+  await page.waitForTimeout(1000);
+  for (let i = 0; i < 5; i++) {
+    await tapRole('素材', { nth: i });
+  }
+  await shot('17-enhance');
+  await tapRoleLast('フュージョン', { exact: true });
+  await page.waitForTimeout(800);
+  await shot('18-enhance-confirm');
+  await tapRole('決定');
+  await page.waitForTimeout(1500);
+  await shot('19-enhance-result');
+  await tapRoleLast('OK');
 
   await browser.close();
   console.log('E2E done');

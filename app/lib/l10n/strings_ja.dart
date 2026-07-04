@@ -78,6 +78,35 @@ class S {
   static const equipGem = '装着する';
   static const selectGem = 'ジェムを選択';
 
+  // ミント
+  static const mintTitle = 'シューズミント';
+  static const selectPartner = '相方のシューズを選択';
+  static const matchingShoes = 'ミント可能なシューズ';
+  static const tokenConsumption = '消費ポイント';
+  static const mintButton = 'ミント';
+  static const mintDone = 'ミント成功!新しいシューズが誕生!';
+  static const noPartner = 'ミント可能な相方がいません(Lv5以上・ミント7回未満)';
+  static const idLabel = 'ID';
+  static const levelLabel = 'レベル';
+  static const classLabel = 'クラス';
+  static const shoeMintLabel = 'ミント回数';
+
+  // フュージョン
+  static const enhanceTitle = 'フュージョン';
+  static const enhanceButton = 'フュージョン';
+  static const enhanceNote = '同レアリティ5足を合成。成功で1段上、失敗でも同レアリティの靴が生まれます';
+  static const enhanceSuccess = 'フュージョン成功!レアリティアップ!';
+  static const enhanceFail = 'レアリティは上がらなかったが、新しい靴が誕生した';
+  static const rainbowChance = 'レインボー確率(準備中)';
+  static const notEnoughShoes = '同レアリティの靴が5足必要です';
+  static const legendaryCannot = 'レジェンダリーは対象外です';
+
+  // 売却
+  static const sellTitle = '売却';
+  static const sellConfirm = 'このシューズを売却しますか?装着中のジェムは外れます。';
+  static const sellDone = '売却しました',
+      sellPriceLabel = '売却価格';
+
   // ジェム強化
   static const upgradeTitle = 'ジェム強化';
   static const successRate = '成功率';

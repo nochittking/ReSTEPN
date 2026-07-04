@@ -32,6 +32,8 @@ class StepnButton extends StatelessWidget {
       label: label,
       button: true,
       enabled: !disabled,
+      excludeSemantics: true,
+      onTap: onTap,
       child: Opacity(
       opacity: disabled ? 0.45 : 1,
       child: GestureDetector(

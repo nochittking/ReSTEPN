@@ -10,6 +10,8 @@ import '../theme/restep_theme.dart';
 import '../widgets/gem_art.dart';
 import '../widgets/sneaker_art.dart';
 import '../widgets/stepn_button.dart';
+import 'enhance_screen.dart';
+import 'mint_screen.dart';
 
 /// シューズ詳細: 4隅ソケット・属性バー・レベルアップ/リペア。
 class ShoeDetailScreen extends StatelessWidget {
@@ -232,10 +234,115 @@ class ShoeDetailScreen extends StatelessWidget {
                 label: S.repair,
                 onTap: () => _showRepairDialog(context, state, shoe),
               ),
-              _ActionItem(icon: Icons.favorite_border, label: S.mint),
-              _ActionItem(icon: Icons.sell_outlined, label: S.sell),
-              _ActionItem(icon: Icons.gavel, label: S.fusion),
+              _ActionItem(
+                icon: Icons.favorite_border,
+                label: S.mint,
+                onTap: () => _openMint(context, state, shoe),
+              ),
+              _ActionItem(
+                icon: Icons.sell_outlined,
+                label: S.sell,
+                onTap: () => _showSellDialog(context, state, shoe),
+              ),
+              _ActionItem(
+                icon: Icons.gavel,
+                label: S.fusion,
+                onTap: () => Navigator.of(context).push(
+                  MaterialPageRoute<void>(
+                      builder: (_) => const EnhanceScreen()),
+                ),
+              ),
               _ActionItem(icon: Icons.sync_alt, label: S.transfer),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  // ---- ミント / 売却 ----
+
+  void _openMint(BuildContext context, AppState state, Shoe shoe) {
+    final reason = state.mint.mintBlockReason(shoe);
+    if (reason != null) {
+      ScaffoldMessenger.of(context)
+          .showSnackBar(SnackBar(content: Text('${S.mint}: $reason')));
+      return;
+    }
+    Navigator.of(context).push(
+      MaterialPageRoute<void>(builder: (_) => MintScreen(parentId: shoe.id)),
+    );
+  }
+
+  void _showSellDialog(BuildContext context, AppState state, Shoe shoe) {
+    final price = state.mint.sellPrice(shoe);
+    showDialog<void>(
+      context: context,
+      builder: (dialogContext) => Dialog(
+        shape:
+            RoundedRectangleBorder(borderRadius: BorderRadius.circular(28)),
+        child: Padding(
+          padding: const EdgeInsets.all(24),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(S.sellTitle, style: RS.label(size: 20)),
+              const SizedBox(height: 10),
+              SneakerArt(shoe: shoe, size: 120),
+              const SizedBox(height: 8),
+              Text(shoe.displayName, style: RS.label(size: 14)),
+              const SizedBox(height: 10),
+              Text(S.sellConfirm,
+                  textAlign: TextAlign.center,
+                  style: RS.body(size: 12, color: RS.grey)),
+              const SizedBox(height: 12),
+              Container(
+                padding: const EdgeInsets.symmetric(
+                    horizontal: 18, vertical: 12),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFF6F5EF),
+                  borderRadius: BorderRadius.circular(999),
+                  border: Border.all(color: const Color(0xFFDDDCD4)),
+                ),
+                child: Row(
+                  children: [
+                    Text(S.sellPriceLabel,
+                        style: RS.label(size: 13, color: RS.grey)),
+                    const Spacer(),
+                    Text('${price.toStringAsFixed(1)} SP',
+                        style: RS.label(size: 16)),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 20),
+              Row(
+                children: [
+                  Expanded(
+                    child: StepnButton(
+                      label: S.cancel,
+                      color: RS.white,
+                      height: 48,
+                      fontSize: 14,
+                      onTap: () => Navigator.of(dialogContext).pop(),
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: StepnButton(
+                      label: S.confirm,
+                      height: 48,
+                      fontSize: 14,
+                      onTap: () async {
+                        final navigator = Navigator.of(dialogContext);
+                        final rootNavigator = Navigator.of(context);
+                        await state.sellShoe(shoe);
+                        navigator.pop();
+                        rootNavigator.pop(); // 詳細画面も閉じる(靴が消えたため)
+                      },
+                    ),
+                  ),
+                ],
+              ),
             ],
           ),
         ),

@@ -12,6 +12,7 @@ import '../models/shoe_inventory.dart';
 import '../services/energy_manager.dart';
 import '../services/gem_service.dart';
 import '../services/location_provider.dart';
+import '../services/mint_service.dart';
 import '../services/reward_engine.dart';
 import '../services/shop_service.dart';
 import '../services/storage.dart';
@@ -19,14 +20,22 @@ import '../services/storage.dart';
 /// アプリ全体の状態。
 /// インベントリ・ジェム・ボックス・エナジー・残高・ショップ・ムーブ進行を持つ。
 class AppState extends ChangeNotifier {
-  AppState({Storage? storage, GemService? gemService, ShopService? shopService})
-      : _storage = storage ?? Storage(),
+  AppState({
+    Storage? storage,
+    GemService? gemService,
+    ShopService? shopService,
+    MintService? mintService,
+  })  : _storage = storage ?? Storage(),
         _gemService = gemService ?? GemService(),
-        _shopService = shopService ?? ShopService();
+        _shopService = shopService ?? ShopService(),
+        mint = mintService ?? MintService();
 
   final Storage _storage;
   final GemService _gemService;
   final ShopService _shopService;
+
+  /// ミント・フュージョン・売却ロジック(画面から費用計算等も参照する)
+  final MintService mint;
 
   ShoeInventory inventory = ShoeInventory();
   EnergyManager energyManager =
@@ -221,6 +230,68 @@ class AppState extends ChangeNotifier {
     await _storage.saveBalances(sp: spBalance, gp: gpBalance);
     notifyListeners();
     return true;
+  }
+
+  /// ミント実行。費用を消費し、新しい靴をインベントリに加える。
+  /// 残高不足・条件不足ならnull。
+  Future<Shoe?> mintShoes(Shoe parent, Shoe partner) async {
+    if (!mint.canMint(parent) || !mint.canMint(partner)) return null;
+    if (parent.id == partner.id) return null;
+    final cost = mint.mintCost(parent, partner);
+    if (spBalance < cost.sp || gpBalance < cost.gp) return null;
+
+    spBalance -= cost.sp;
+    gpBalance -= cost.gp;
+    final child = mint.performMint(parent, partner);
+    inventory.shoes.add(child);
+
+    await _storage.saveInventory(inventory);
+    await _storage.saveBalances(sp: spBalance, gp: gpBalance);
+    _refreshEnergy();
+    notifyListeners();
+    return child;
+  }
+
+  /// フュージョン実行。素材5足と費用を消費し、結果の靴を返す。
+  /// 条件・残高不足ならnull。
+  Future<({Shoe shoe, bool success})?> enhanceShoes(
+      List<Shoe> materials) async {
+    if (mint.enhanceBlockReason(materials) != null) return null;
+    final cost = mint.enhanceCost(materials.first.rarity);
+    if (spBalance < cost.sp || gpBalance < cost.gp) return null;
+
+    spBalance -= cost.sp;
+    gpBalance -= cost.gp;
+    final result = mint.performEnhance(materials);
+    for (final material in materials) {
+      inventory.shoes.removeWhere((s) => s.id == material.id);
+      for (final gem in gems) {
+        if (gem.equippedShoeId == material.id) gem.equippedShoeId = null;
+      }
+    }
+    inventory.shoes.add(result.shoe);
+    if (selectedShoeId == null ||
+        inventory.byId(selectedShoeId) == null) {
+      selectedShoeId = result.shoe.id;
+    }
+
+    await _storage.saveInventory(inventory);
+    await _storage.saveGems(gems);
+    await _storage.saveBalances(sp: spBalance, gp: gpBalance);
+    _refreshEnergy();
+    notifyListeners();
+    return result;
+  }
+
+  /// 売却。靴を手放してSPを得る。
+  Future<double?> sellShoe(Shoe shoe) async {
+    if (inventory.byId(shoe.id) == null) return null;
+    final price = mint.sellPrice(shoe);
+    spBalance += price;
+    await removeShoe(shoe.id); // ジェム取り外し・保存・エナジー再計算込み
+    await _storage.saveBalances(sp: spBalance, gp: gpBalance);
+    notifyListeners();
+    return price;
   }
 
   // ---- ジェム操作 ----
