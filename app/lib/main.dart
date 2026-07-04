@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import 'l10n/strings_ja.dart';
+import 'screens/gallery_debug.dart';
 import 'screens/home_screen.dart';
 import 'screens/ranking_screen.dart';
 import 'screens/shoes_tab.dart';
@@ -24,7 +25,9 @@ class ReStepApp extends StatelessWidget {
         title: S.appTitle,
         debugShowCheckedModeBanner: false,
         theme: RS.theme(),
-        home: const MainShell(),
+        home: const bool.fromEnvironment('GALLERY')
+            ? const GalleryDebug()
+            : const MainShell(),
       ),
     );
   }
