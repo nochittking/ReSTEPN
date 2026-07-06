@@ -128,7 +128,7 @@ class _ShoesTabState extends State<ShoesTab> {
               1 => _gemSub == 0
                   ? _GemGallery(state: state)
                   : _GemUpgrade(state: state),
-              _ => _OthersPlaceholder(),
+              _ => _SkinsGallery(state: state),
             },
           ),
         ],
@@ -223,7 +223,11 @@ class _SneakerGrid extends StatelessWidget {
                 ),
               ),
               Expanded(
-                  child: Center(child: SneakerArt(shoe: shoe, size: 120))),
+                  child: Center(
+                      child: SneakerArt(
+                          shoe: shoe,
+                          size: 120,
+                          skin: state.equippedSkinOf(shoe.id)))),
               PillBadge(
                 text: shoe.serialLabel,
                 color: RS.white,
@@ -595,20 +599,84 @@ class _GemUpgradeState extends State<_GemUpgrade> {
 }
 
 /// その他(スクロール/バッジ)プレースホルダ
-class _OthersPlaceholder extends StatelessWidget {
+/// スキン一覧(その他タブ)。所持スキンをプレビュー表示し、装着状況を示す。
+class _SkinsGallery extends StatelessWidget {
+  const _SkinsGallery({required this.state});
+
+  final AppState state;
+
   @override
   Widget build(BuildContext context) {
-    return Center(
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          const Icon(Icons.receipt_long, size: 56, color: RS.grey),
-          const SizedBox(height: 12),
-          Text('${S.subScroll} / ${S.subBadges}',
-              style: RS.label(size: 15, color: RS.grey)),
-          Text(S.comingSoon, style: RS.body(size: 13, color: RS.grey)),
-        ],
+    final skins = state.skins;
+    if (skins.isEmpty) {
+      return Center(child: Text(S.noSkins, style: RS.body(size: 14)));
+    }
+    // スキンはSneakerArtにshoeが必要(見た目はスキンが上書き)。ダミー靴で描画。
+    final preview = state.inventory.shoes.isNotEmpty
+        ? state.inventory.shoes.first
+        : Shoe(id: '_preview', type: ShoeType.walker, rarity: Rarity.common);
+    return GridView.builder(
+      padding: const EdgeInsets.fromLTRB(16, 16, 16, 120),
+      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+        crossAxisCount: 2,
+        mainAxisSpacing: 16,
+        crossAxisSpacing: 16,
+        childAspectRatio: 0.78,
       ),
+      itemCount: skins.length,
+      itemBuilder: (context, i) {
+        final skin = skins[i];
+        final equipped = skin.equippedShoeId != null;
+        final onShoe = equipped
+            ? state.inventory.byId(skin.equippedShoeId)
+            : null;
+        return StepnCard(
+          padding: EdgeInsets.zero,
+          radius: 24,
+          semanticLabel: skin.name,
+          child: Column(
+            children: [
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.symmetric(vertical: 6),
+                decoration: BoxDecoration(
+                  color: RS.rarityColor(skin.paletteRarity),
+                  borderRadius:
+                      const BorderRadius.vertical(top: Radius.circular(21)),
+                ),
+                child: Center(
+                  child: Text(skin.name,
+                      style: RS.label(size: 13, color: RS.white)),
+                ),
+              ),
+              Expanded(
+                child: Center(
+                  child: SneakerArt(shoe: preview, size: 120, skin: skin),
+                ),
+              ),
+              Padding(
+                padding: const EdgeInsets.fromLTRB(10, 0, 10, 10),
+                child: equipped
+                    ? PillBadge(
+                        text: onShoe != null
+                            ? '装着中: ${onShoe.type.label}'
+                            : S.skinInUse,
+                        color: RS.blue,
+                        textColor: RS.white,
+                        fontSize: 11,
+                      )
+                    : PillBadge(
+                        text: '未装着',
+                        color: RS.white,
+                        textColor: RS.grey,
+                        borderColor: const Color(0xFFDDDCD4),
+                        fontSize: 11,
+                      ),
+              ),
+            ],
+          ),
+        );
+      },
     );
   }
 }

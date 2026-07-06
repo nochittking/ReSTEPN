@@ -392,7 +392,11 @@ class _HeroShoeCard extends StatelessWidget {
                 ),
               ),
             ),
-            Center(child: SneakerArt(shoe: shoe, size: 220)),
+            Center(
+                child: SneakerArt(
+                    shoe: shoe,
+                    size: 220,
+                    skin: state.equippedSkinOf(shoe.id))),
             // 下部ピル: #ID / 耐久 / Lv
             Positioned(
               bottom: 14,

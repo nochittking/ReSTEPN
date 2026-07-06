@@ -5,6 +5,7 @@ import '../config/game_config.dart';
 import '../l10n/strings_ja.dart';
 import '../models/gem.dart';
 import '../models/shoe.dart';
+import '../models/skin.dart';
 import '../state/app_state.dart';
 import '../theme/restep_theme.dart';
 import '../widgets/gem_art.dart';
@@ -100,8 +101,10 @@ class ShoeDetailScreen extends StatelessWidget {
                                     ]),
                                   ),
                                   child: Center(
-                                      child:
-                                          SneakerArt(shoe: shoe, size: 190)),
+                                      child: SneakerArt(
+                                          shoe: shoe,
+                                          size: 190,
+                                          skin: state.equippedSkinOf(shoe.id))),
                                 ),
                               ),
                               for (var i = 0; i < 4; i++)
@@ -179,6 +182,13 @@ class ShoeDetailScreen extends StatelessWidget {
                           progress: shoe.mintCount / 7,
                           fill: RS.mint,
                           segments: 7,
+                        ),
+                        const SizedBox(height: 14),
+
+                        // スキンスロット(見た目の差し替え)
+                        _SkinSlot(
+                          skin: state.equippedSkinOf(shoe.id),
+                          onTap: () => _showSkinPicker(context, state, shoe),
                         ),
                         const SizedBox(height: 18),
 
@@ -335,7 +345,8 @@ class ShoeDetailScreen extends StatelessWidget {
             children: [
               Text(S.sellTitle, style: RS.label(size: 20)),
               const SizedBox(height: 10),
-              SneakerArt(shoe: shoe, size: 120),
+              SneakerArt(
+                  shoe: shoe, size: 120, skin: state.equippedSkinOf(shoe.id)),
               const SizedBox(height: 8),
               Text(shoe.displayName, style: RS.label(size: 14)),
               const SizedBox(height: 10),
@@ -588,6 +599,88 @@ class ShoeDetailScreen extends StatelessWidget {
     );
   }
 
+  // ---- スキン装着 ----
+
+  void _showSkinPicker(BuildContext context, AppState state, Shoe shoe) {
+    showModalBottomSheet<void>(
+      context: context,
+      backgroundColor: RS.white,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(32)),
+      ),
+      builder: (sheetContext) {
+        final equipped = state.equippedSkinOf(shoe.id);
+        final available = state.unequippedSkins;
+        return Padding(
+          padding: const EdgeInsets.all(20),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(S.selectSkin, style: RS.label(size: 18)),
+              const SizedBox(height: 6),
+              Text(S.skinNote,
+                  textAlign: TextAlign.center,
+                  style: RS.body(size: 11, color: RS.grey)),
+              const SizedBox(height: 16),
+              if (equipped != null) ...[
+                _SkinTile(
+                  skin: equipped,
+                  shoe: shoe,
+                  selected: true,
+                  onTap: () async {
+                    await state.unequipSkin(equipped);
+                    if (sheetContext.mounted) {
+                      Navigator.of(sheetContext).pop();
+                    }
+                  },
+                  trailing: Text(S.removeSkin,
+                      style: RS.label(size: 12, color: RS.red)),
+                ),
+                const Divider(height: 24),
+              ],
+              if (available.isEmpty && equipped == null)
+                Padding(
+                  padding: const EdgeInsets.all(20),
+                  child: Text(S.noSkins, style: RS.body(size: 13)),
+                )
+              else
+                Flexible(
+                  child: ListView(
+                    shrinkWrap: true,
+                    children: [
+                      for (final s in available)
+                        Padding(
+                          padding: const EdgeInsets.only(bottom: 10),
+                          child: _SkinTile(
+                            skin: s,
+                            shoe: shoe,
+                            selected: false,
+                            onTap: () async {
+                              await state.equipSkin(shoe.id, s);
+                              if (sheetContext.mounted) {
+                                Navigator.of(sheetContext).pop();
+                              }
+                            },
+                          ),
+                        ),
+                    ],
+                  ),
+                ),
+              const SizedBox(height: 8),
+              StepnButton(
+                label: S.cancel,
+                color: RS.white,
+                height: 48,
+                fontSize: 14,
+                onTap: () => Navigator.of(sheetContext).pop(),
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
   // ---- レベルアップ / リペア ----
 
   void _showLevelUpDialog(BuildContext context, AppState state, Shoe shoe) {
@@ -698,7 +791,10 @@ class ShoeDetailScreen extends StatelessWidget {
                     ],
                   ),
                   const SizedBox(height: 8),
-                  SneakerArt(shoe: shoe, size: 150),
+                  SneakerArt(
+                      shoe: shoe,
+                      size: 150,
+                      skin: state.equippedSkinOf(shoe.id)),
                   const SizedBox(height: 8),
                   Text(
                     '${S.durability}:${shoe.durability.toStringAsFixed(0)}/100',
@@ -946,6 +1042,122 @@ class _CostRow extends StatelessWidget {
           const Spacer(),
           Text('${cost.toStringAsFixed(1)} SP', style: RS.label(size: 16)),
         ],
+      ),
+    );
+  }
+}
+
+class _SkinSlot extends StatelessWidget {
+  const _SkinSlot({required this.skin, required this.onTap});
+
+  final Skin? skin;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final equipped = skin != null;
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+        decoration: BoxDecoration(
+          color: RS.white,
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(
+            color: equipped ? RS.blue : const Color(0xFFDDDCD4),
+            width: 1.6,
+          ),
+        ),
+        child: Row(
+          children: [
+            Container(
+              width: 40,
+              height: 40,
+              decoration: BoxDecoration(
+                color: equipped
+                    ? RS.blue.withValues(alpha: 0.12)
+                    : const Color(0xFFF0EFE8),
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Icon(
+                equipped ? Icons.palette : Icons.palette_outlined,
+                color: equipped ? RS.blue : RS.grey,
+                size: 22,
+              ),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(S.skin, style: RS.label(size: 13, color: RS.grey)),
+                  const SizedBox(height: 2),
+                  Text(
+                    equipped ? skin!.name : S.noSkinEquipped,
+                    style: RS.label(size: 15),
+                  ),
+                ],
+              ),
+            ),
+            const Icon(Icons.chevron_right, color: RS.grey),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _SkinTile extends StatelessWidget {
+  const _SkinTile({
+    required this.skin,
+    required this.shoe,
+    required this.selected,
+    required this.onTap,
+    this.trailing,
+  });
+
+  final Skin skin;
+  final Shoe shoe;
+  final bool selected;
+  final VoidCallback onTap;
+  final Widget? trailing;
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+        decoration: BoxDecoration(
+          color: selected ? RS.blue.withValues(alpha: 0.08) : RS.white,
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(
+            color: selected ? RS.blue : const Color(0xFFDDDCD4),
+            width: 1.6,
+          ),
+        ),
+        child: Row(
+          children: [
+            SizedBox(
+              width: 64,
+              height: 48,
+              child: SneakerArt(shoe: shoe, size: 64, skin: skin),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(skin.name, style: RS.label(size: 15)),
+                  const SizedBox(height: 2),
+                  Text('${skin.visualType.label} / ${skin.paletteRarity.label}',
+                      style: RS.body(size: 11, color: RS.grey)),
+                ],
+              ),
+            ),
+            ?trailing,
+          ],
+        ),
       ),
     );
   }

@@ -3,29 +3,38 @@ import 'dart:math';
 import 'package:flutter/material.dart';
 
 import '../models/shoe.dart';
+import '../models/skin.dart';
 
 /// スニーカーのイラスト(完全自作のCustomPaint)。
 ///
 /// ローポリ・アート: アッパーを解剖学的なゾーン(トゥ/ヴァンプ/レース枠/クォーター/
 /// ヒールカウンター/襟/タン)に沿った平坦な単色ファセットで塗り、極太の黒アウトライン、
 /// 多層のクリーム系ソール(差し色ライン+歯付きアウトソール)、飛び出したタン、
-/// はしご状のレース、ヒールタブで構成する。シルエットはタイプごとに手作りし、
+/// はしご状のレースで構成する。シルエットはタイプごとに手作りし、
 /// 配色は seed(シリアル値)で個体ごとに変わる。
+///
+/// [skin] を渡すと、見た目だけスキンの絵柄(シルエット/配色/柄)で描画する。
+/// 靴のステータス・レアリティには影響しない。描画ロジック本体は不変。
 class SneakerArt extends StatelessWidget {
-  const SneakerArt({super.key, required this.shoe, this.size = 160});
+  const SneakerArt({super.key, required this.shoe, this.size = 160, this.skin});
 
   final Shoe shoe;
   final double size;
+  final Skin? skin;
 
   @override
   Widget build(BuildContext context) {
+    // スキン装着時は見た目パラメータをスキンから取る。
+    final type = skin?.visualType ?? shoe.type;
+    final paletteRarity = skin?.paletteRarity ?? shoe.rarity;
+    final seed = skin?.seed ?? (shoe.serial ?? shoe.id.hashCode);
     return CustomPaint(
       size: Size(size, size * 0.74),
       painter: _LowPolyPainter(
-        type: shoe.type,
-        palette: _palette(shoe.rarity, shoe.serial ?? shoe.id.hashCode),
-        seed: shoe.serial ?? shoe.id.hashCode,
-        rarity: shoe.rarity,
+        type: type,
+        palette: _palette(paletteRarity, seed),
+        seed: seed,
+        rarity: paletteRarity,
       ),
     );
   }

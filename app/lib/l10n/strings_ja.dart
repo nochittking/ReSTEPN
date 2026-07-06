@@ -117,6 +117,17 @@ class S {
   static const fusionNoGain = '底上げできる属性がありませんでした';
   static const baseAttributes = 'ベース属性';
 
+  // スキン(見た目を変える独自アイテム)
+  static const skin = 'スキン';
+  static const segSkins = 'スキン';
+  static const equipSkin = 'スキンを装着';
+  static const removeSkin = 'スキンを外す';
+  static const selectSkin = 'スキンを選択';
+  static const noSkins = 'スキンがありません。';
+  static const noSkinEquipped = 'スキン未装着(元の見た目)';
+  static const skinNote = '装着すると見た目だけを変更します。ステータスやレアリティは変わりません。';
+  static const skinInUse = '他の靴に装着中';
+
   // 売却
   static const sellTitle = '売却';
   static const sellConfirm = 'このシューズを売却しますか?装着中のジェムは外れます。';

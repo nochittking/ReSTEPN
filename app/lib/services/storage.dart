@@ -6,6 +6,7 @@ import '../models/gem.dart';
 import '../models/move_session.dart';
 import '../models/mystery_box.dart';
 import '../models/shoe_inventory.dart';
+import '../models/skin.dart';
 import 'energy_manager.dart';
 import 'shop_service.dart';
 
@@ -16,6 +17,7 @@ class Storage {
   static const _keySessions = 'restep.sessions';
   static const _keyBalances = 'restep.balances';
   static const _keyGems = 'restep.gems';
+  static const _keySkins = 'restep.skins';
   static const _keyBoxes = 'restep.boxes';
   static const _keyDaily = 'restep.daily';
   static const _keyShop = 'restep.shop';
@@ -81,6 +83,20 @@ class Storage {
     if (raw == null) return [];
     return (jsonDecode(raw) as List<dynamic>)
         .map((e) => Gem.fromJson(Map<String, dynamic>.from(e as Map)))
+        .toList();
+  }
+
+  Future<void> saveSkins(List<Skin> skins) async {
+    (await _prefs).setString(
+        _keySkins, jsonEncode(skins.map((s) => s.toJson()).toList()));
+  }
+
+  /// スキン一覧。未保存(初回)は null を返し、呼び出し側でスターター配布する。
+  Future<List<Skin>?> loadSkins() async {
+    final raw = (await _prefs).getString(_keySkins);
+    if (raw == null) return null;
+    return (jsonDecode(raw) as List<dynamic>)
+        .map((e) => Skin.fromJson(Map<String, dynamic>.from(e as Map)))
         .toList();
   }
 

@@ -9,6 +9,7 @@ import '../models/move_session.dart';
 import '../models/mystery_box.dart';
 import '../models/shoe.dart';
 import '../models/shoe_inventory.dart';
+import '../models/skin.dart';
 import '../services/energy_manager.dart';
 import '../services/gem_service.dart';
 import '../services/location_provider.dart';
@@ -42,6 +43,7 @@ class AppState extends ChangeNotifier {
       EnergyManager(energy: 0, lastUpdateUtc: DateTime.now().toUtc());
   List<MoveSession> sessions = [];
   List<Gem> gems = [];
+  List<Skin> skins = [];
   List<MysteryBox> boxes = [];
   List<ShopListing> shopCatalog = [];
   double spBalance = 0;
@@ -98,6 +100,36 @@ class AppState extends ChangeNotifier {
   List<Gem> unequippedGems(GemType type) =>
       gems.where((g) => g.equippedShoeId == null && g.type == type).toList();
 
+  // ---- スキン ----
+
+  /// シューズに装着中のスキン(1足1枠)。
+  Skin? equippedSkinOf(String? shoeId) {
+    if (shoeId == null) return null;
+    for (final skin in skins) {
+      if (skin.equippedShoeId == shoeId) return skin;
+    }
+    return null;
+  }
+
+  /// 未装着スキン。
+  List<Skin> get unequippedSkins =>
+      skins.where((s) => s.equippedShoeId == null).toList();
+
+  /// スキンを装着(同じ靴に付いていた別スキンは外す)。自由に再利用可。
+  Future<void> equipSkin(String shoeId, Skin skin) async {
+    final current = equippedSkinOf(shoeId);
+    current?.equippedShoeId = null;
+    skin.equippedShoeId = shoeId;
+    await _storage.saveSkins(skins);
+    notifyListeners();
+  }
+
+  Future<void> unequipSkin(Skin skin) async {
+    skin.equippedShoeId = null;
+    await _storage.saveSkins(skins);
+    notifyListeners();
+  }
+
   // ---- 起動時ロード ----
 
   static String dayKeyFor(DateTime utc) {
@@ -145,6 +177,8 @@ class AppState extends ChangeNotifier {
     }
     sessions = await _storage.loadSessions();
     gems = await _storage.loadGems();
+    skins = await _storage.loadSkins() ?? starterSkins();
+    await _storage.saveSkins(skins);
     boxes = await _storage.loadBoxes();
     final balances = await _storage.loadBalances();
     spBalance = balances.sp;
