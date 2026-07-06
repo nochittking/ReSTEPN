@@ -95,6 +95,9 @@ class S {
   static const levelLabel = 'レベル';
   static const classLabel = 'クラス';
   static const shoeMintLabel = 'ミント回数';
+  static const vanishChanceLabel = '消滅リスク(親)';
+  static const twinChanceLabel = '双子確率';
+  static const vanishNote = 'ミント回数が多い親ほど消滅しやすく、7回目は必ず引退します';
 
   // エンハンス(同レア5足→上位レアリティ)
   static const enhanceTitle = 'エンハンス';

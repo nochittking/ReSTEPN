@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 import '../config/game_config.dart';
 import '../l10n/strings_ja.dart';
 import '../models/shoe.dart';
+import '../models/skin.dart';
 import '../state/app_state.dart';
 import '../theme/restep_theme.dart';
 import '../widgets/machine_art.dart';
@@ -83,6 +84,7 @@ class _MintScreenState extends State<MintScreen> {
                         child: _PedestalSlot(
                           shoe: parent,
                           label: parent.serialLabel,
+                          skin: state.equippedSkinOf(parent.id),
                         ),
                       ),
                       const SizedBox(width: 18),
@@ -90,6 +92,7 @@ class _MintScreenState extends State<MintScreen> {
                         child: _PedestalSlot(
                           shoe: partner,
                           label: partner?.serialLabel ?? S.selectPartner,
+                          skin: state.equippedSkinOf(partnerId),
                           onTap: () => _showPartnerPicker(state, parent),
                         ),
                       ),
@@ -132,6 +135,46 @@ class _MintScreenState extends State<MintScreen> {
                             ),
                           ],
                         ),
+                        if (partner != null) ...[
+                          const Divider(height: 24),
+                          // 消滅リスク(各親のミント回数で個別判定)
+                          Row(
+                            children: [
+                              Text(S.vanishChanceLabel,
+                                  style: RS.label(size: 13, color: RS.grey)),
+                              const Spacer(),
+                              _OddsChip(
+                                label: '親',
+                                percent:
+                                    state.mint.vanishChance(parent) * 100,
+                                danger: true,
+                              ),
+                              const SizedBox(width: 8),
+                              _OddsChip(
+                                label: '相方',
+                                percent:
+                                    state.mint.vanishChance(partner) * 100,
+                                danger: true,
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 10),
+                          // 双子確率(両親合計ミント回数×4%、上限48%)
+                          Row(
+                            children: [
+                              Text(S.twinChanceLabel,
+                                  style: RS.label(size: 13, color: RS.grey)),
+                              const Spacer(),
+                              _OddsChip(
+                                label: '双子',
+                                percent: state.mint
+                                        .twinChance(parent, partner) *
+                                    100,
+                                danger: false,
+                              ),
+                            ],
+                          ),
+                        ],
                         const Divider(height: 24),
                         Row(
                           children: [
@@ -140,7 +183,9 @@ class _MintScreenState extends State<MintScreen> {
                             const SizedBox(width: 6),
                             Expanded(
                               child: Text(
-                                '両親が同レアリティのとき、10%で1段上のレアリティが誕生',
+                                partner != null
+                                    ? S.vanishNote
+                                    : '両親が同レアリティのとき、10%で1段上のレアリティが誕生',
                                 style: RS.body(size: 12, color: RS.grey),
                               ),
                             ),
@@ -318,7 +363,10 @@ class _MintScreenState extends State<MintScreen> {
                                   width: 2),
                             ),
                             child: Center(
-                                child: SneakerArt(shoe: shoe, size: 80)),
+                                child: SneakerArt(
+                                    shoe: shoe,
+                                    size: 80,
+                                    skin: state.equippedSkinOf(shoe.id))),
                           ),
                           ),
                         );
@@ -412,11 +460,13 @@ class _MintScreenState extends State<MintScreen> {
 }
 
 class _PedestalSlot extends StatelessWidget {
-  const _PedestalSlot({required this.shoe, required this.label, this.onTap});
+  const _PedestalSlot(
+      {required this.shoe, required this.label, this.onTap, this.skin});
 
   final Shoe? shoe;
   final String label;
   final VoidCallback? onTap;
+  final Skin? skin;
 
   @override
   Widget build(BuildContext context) {
@@ -435,7 +485,7 @@ class _PedestalSlot extends StatelessWidget {
               height: 110,
               child: Center(
                 child: shoe != null
-                    ? SneakerArt(shoe: shoe!, size: 130)
+                    ? SneakerArt(shoe: shoe!, size: 130, skin: skin)
                     : Container(
                         width: 96,
                         height: 96,
@@ -458,6 +508,43 @@ class _PedestalSlot extends StatelessWidget {
             ),
           ],
         ),
+      ),
+    );
+  }
+}
+
+/// ミント前に提示する確率チップ(消滅=赤系 / 双子=青系)。
+/// ミント前に提示する確率チップ(消滅=赤系 / 双子=青系)。
+class _OddsChip extends StatelessWidget {
+  const _OddsChip(
+      {required this.label, required this.percent, required this.danger});
+
+  /// チップ左に添えるラベル(親のシリアルや「双子」など)。
+  final String label;
+  final double percent;
+  final bool danger;
+
+  @override
+  Widget build(BuildContext context) {
+    final zero = percent <= 0;
+    final base = danger ? RS.red : RS.blue;
+    final color = zero ? RS.grey : base;
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.12),
+        borderRadius: BorderRadius.circular(999),
+        border: Border.all(color: color.withValues(alpha: 0.5)),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Text(label,
+              style: RS.body(size: 10, color: color.withValues(alpha: 0.9))),
+          const SizedBox(width: 5),
+          Text('${percent.toStringAsFixed(0)}%',
+              style: RS.label(size: 14, color: color)),
+        ],
       ),
     );
   }
