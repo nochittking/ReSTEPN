@@ -42,12 +42,22 @@ class GameConfig {
   /// デイリーリセット時刻(JST)
   static const int dailyResetHourJst = 4;
 
-  // ---- シューズ属性 ----
+  // ---- シューズ属性(個体ごとにランダムな基礎値を保持) ----
 
-  /// レアリティごとの属性基礎値(効率/幸運/快適/回復 共通)
+  /// ミント/購入時の属性ロール範囲(レアリティ別・各属性 min〜max)
+  static const List<(double min, double max)> mintAttrRange = [
+    (1, 10), // コモン
+    (8, 18), // アンコモン
+    (15, 28), // レア
+    (25, 42), // エピック
+    (40, 60), // レジェンダリー
+  ];
+
+  /// レベルアップで得られる手動振り分けポイント数
+  static const int pointsPerLevel = 4;
+
+  /// 旧データ移行フォールバック用(attrs無しJSONを近似再現)。ライブ計算では不使用。
   static const List<double> rarityBaseAttr = [1.0, 8.0, 18.0, 30.0, 45.0];
-
-  /// レベルアップによる属性成長(効率+1.0/Lv、他+0.3/Lv)
   static const double efficiencyPerLevel = 1.0;
   static const double otherAttrPerLevel = 0.3;
 
@@ -56,6 +66,11 @@ class GameConfig {
 
   /// レベルアップ費用: SP (Lv+1)×10
   static double levelUpCost(int currentLevel) => (currentLevel + 1) * 10.0;
+
+  // ---- フュージョン(ベース+生贄1足で属性を底上げ) ----
+
+  /// 生贄はベースと同レアリティが必要。費用(レアリティ別・控えめ)。
+  static const List<double> fusionCostSp = [80, 160, 320, 640, 1280];
 
   // ---- 耐久度 ----
 
@@ -109,7 +124,17 @@ class GameConfig {
   /// 両親が同レアリティのとき、この確率で1段上のレアリティが生まれる
   static const double mintRarityUpChance = 0.10;
 
-  // ---- フュージョン(同レアリティ5足 → 上位レアリティ挑戦) ----
+  /// 各親の消滅確率(その親の「何回目のミントか」= mintCount+1 で参照)。
+  /// 1回目0% → …逓増… → 6回目15% → 7回目100%(確定引退)。
+  static const List<double> mintVanishByOccasion = [
+    0.0, 0.05, 0.09, 0.12, 0.14, 0.15, 1.0,
+  ];
+
+  /// 双子(子2足)確率 = 両親の合計ミント回数 × 4%(上限48%)。
+  static const double mintTwinStep = 0.04;
+  static const double mintTwinCap = 0.48;
+
+  // ---- エンハンス(同レアリティ5足 → 上位レアリティ挑戦) ----
 
   static const int enhanceMaterialCount = 5;
 

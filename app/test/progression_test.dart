@@ -1,24 +1,69 @@
+import 'dart:math';
+
 import 'package:flutter_test/flutter_test.dart';
 import 'package:restep_mvp/config/game_config.dart';
 import 'package:restep_mvp/models/shoe.dart';
 import 'package:restep_mvp/services/shop_service.dart';
 import 'package:restep_mvp/state/app_state.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 void main() {
+  setUp(() {
+    TestWidgetsFlutterBinding.ensureInitialized();
+    SharedPreferences.setMockInitialValues({});
+  });
+
   group('レベルアップ', () {
     test('費用はLv0→1で10SP、Lv5→6で60SP', () {
       expect(GameConfig.levelUpCost(0), 10.0);
       expect(GameConfig.levelUpCost(5), 60.0);
     });
 
-    test('レベルで効率が+1.0/Lv成長する', () {
-      final shoe = Shoe(id: 's', type: ShoeType.walker, rarity: Rarity.common);
-      final before = shoe.baseAttr(ShoeAttr.efficiency);
-      shoe.level = 10;
-      expect(shoe.baseAttr(ShoeAttr.efficiency), closeTo(before + 10.0, 1e-9));
-      // 他属性は+0.3/Lv
-      expect(shoe.baseAttr(ShoeAttr.luck),
-          closeTo(Rarity.common.baseAttr + 3.0, 1e-9));
+    test('レベルアップは4ポイント付与(属性は自動成長しない)', () async {
+      final state = AppState();
+      await state.load();
+      final shoe = state.inventory.shoes.first;
+      shoe.level = 5; // ミント条件などとは無関係にLv設定
+      final effBefore = shoe.baseAttr(ShoeAttr.efficiency);
+      state.spBalance = 10000;
+      final ok = await state.levelUpShoe(shoe);
+      expect(ok, isTrue);
+      expect(shoe.level, 6);
+      expect(shoe.unspentPoints, GameConfig.pointsPerLevel);
+      // 効率は自動では変わらない
+      expect(shoe.baseAttr(ShoeAttr.efficiency), closeTo(effBefore, 1e-9));
+    });
+
+    test('ポイント振り分けで対象属性が+1、残ポイントが減る', () async {
+      final state = AppState();
+      await state.load();
+      final shoe = state.inventory.shoes.first;
+      shoe.unspentPoints = 2;
+      final before = shoe.baseAttr(ShoeAttr.luck);
+      await state.allocatePoint(shoe, ShoeAttr.luck);
+      expect(shoe.baseAttr(ShoeAttr.luck), closeTo(before + 1.0, 1e-9));
+      expect(shoe.unspentPoints, 1);
+    });
+
+    test('残ポイント0では振り分け不可', () async {
+      final state = AppState();
+      await state.load();
+      final shoe = state.inventory.shoes.first;
+      shoe.unspentPoints = 0;
+      final ok = await state.allocatePoint(shoe, ShoeAttr.luck);
+      expect(ok, isFalse);
+    });
+  });
+
+  group('属性ロール', () {
+    test('レアリティ帯の範囲内でロールされる', () {
+      final rng = Random(42);
+      final attrs = rollAttrs(Rarity.rare, rng);
+      final range = GameConfig.mintAttrRange[Rarity.rare.index];
+      for (final a in ShoeAttr.values) {
+        expect(attrs[a], greaterThanOrEqualTo(range.$1));
+        expect(attrs[a], lessThanOrEqualTo(range.$2));
+      }
     });
   });
 

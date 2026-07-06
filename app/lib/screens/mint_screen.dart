@@ -175,32 +175,72 @@ class _MintScreenState extends State<MintScreen> {
   }
 
   Future<void> _doMint(AppState state, Shoe parent, Shoe partner) async {
-    final child = await state.mintShoes(parent, partner);
-    if (child == null || !mounted) return;
+    final result = await state.mintShoes(parent, partner);
+    if (result == null || !mounted) return;
     await showDialog<void>(
       context: context,
       builder: (_) => Dialog(
         shape:
             RoundedRectangleBorder(borderRadius: BorderRadius.circular(28)),
         child: Padding(
-          padding: const EdgeInsets.all(28),
+          padding: const EdgeInsets.all(24),
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Text(S.mintDone,
+              Text(result.twin ? '双子誕生!ミント成功!' : S.mintDone,
                   textAlign: TextAlign.center, style: RS.label(size: 17)),
               const SizedBox(height: 16),
-              SneakerArt(shoe: child, size: 150),
-              const SizedBox(height: 8),
-              PillBadge(
-                text: child.displayName,
-                color: RS.rarityColor(child.rarity),
-                textColor: RS.white,
-                fontSize: 13,
+              Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  for (final c in result.children)
+                    Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 4),
+                      child: Column(
+                        children: [
+                          SneakerArt(
+                              shoe: c,
+                              size: result.children.length > 1 ? 110 : 150),
+                          const SizedBox(height: 6),
+                          PillBadge(
+                            text: c.rarity.label,
+                            color: RS.rarityColor(c.rarity),
+                            textColor: RS.white,
+                            fontSize: 11,
+                          ),
+                          Text(c.serialLabel,
+                              style: RS.body(size: 9, color: RS.grey)),
+                        ],
+                      ),
+                    ),
+                ],
               ),
-              const SizedBox(height: 6),
-              Text(child.serialLabel,
-                  style: RS.label(size: 12, color: RS.grey)),
+              if (result.vanished.isNotEmpty) ...[
+                const SizedBox(height: 14),
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                      horizontal: 14, vertical: 8),
+                  decoration: BoxDecoration(
+                    color: RS.red.withValues(alpha: 0.12),
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: RS.red.withValues(alpha: 0.5)),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      const Icon(Icons.warning_amber_rounded,
+                          size: 16, color: RS.red),
+                      const SizedBox(width: 6),
+                      Flexible(
+                        child: Text(
+                          '${result.vanished.map((v) => v.serialLabel).join(" / ")} が消滅した',
+                          style: RS.label(size: 12, color: RS.red),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
               const SizedBox(height: 20),
               StepnButton(
                 label: 'OK',

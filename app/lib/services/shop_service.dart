@@ -50,6 +50,7 @@ class ShopService {
       rarity: rarity,
       level: level,
       serial: 10000000 + _rng.nextInt(89999999),
+      attrs: rollAttrs(rarity, _rng),
     );
     final price = GameConfig.shopRarityPrice[rarity.index] +
         level * 10.0 +

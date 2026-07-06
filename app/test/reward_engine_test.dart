@@ -68,9 +68,14 @@ void main() {
       expect(engine.tick(60, energyAvailable: true), closeTo(0.505, 1e-9));
     });
 
-    test('レジェンダリー(効率45)はレートが1.45倍', () {
-      final engine =
-          RewardEngine(shoe: _walker(Rarity.legendary), mode: EarnMode.sp);
+    test('効率45の靴はレートが1.45倍', () {
+      final shoe = Shoe(
+        id: 's1',
+        type: ShoeType.walker,
+        rarity: Rarity.legendary,
+        attrs: {for (final a in ShoeAttr.values) a: 45.0},
+      );
+      final engine = RewardEngine(shoe: shoe, mode: EarnMode.sp);
       for (final s in samplesAtSpeed(4.5, 5)) {
         engine.processSample(s);
       }

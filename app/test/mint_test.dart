@@ -1,15 +1,15 @@
 import 'dart:math';
 
 import 'package:flutter_test/flutter_test.dart';
+import 'package:restep_mvp/config/game_config.dart';
 import 'package:restep_mvp/models/shoe.dart';
 import 'package:restep_mvp/services/mint_service.dart';
 
 /// 常に同じ値を返す擬似RNG。
 class _FixedRandom implements Random {
-  _FixedRandom(this.value, {this.boolValue = true});
+  _FixedRandom(this.value);
 
   final double value;
-  final bool boolValue;
 
   @override
   double nextDouble() => value;
@@ -18,7 +18,7 @@ class _FixedRandom implements Random {
   int nextInt(int max) => 0;
 
   @override
-  bool nextBool() => boolValue;
+  bool nextBool() => true;
 }
 
 Shoe _shoe({
@@ -73,42 +73,84 @@ void main() {
   });
 
   group('ミント実行', () {
-    test('両親のミント回数が+1され、新しい靴はLv0・ミント0', () {
+    test('両親のミント回数が+1され、子はLv0・ミント0・属性付き', () {
       final service = MintService(rng: _FixedRandom(0.99));
       final parent = _shoe();
       final partner = _shoe(id: 's2', type: ShoeType.jogger);
-      final child = service.performMint(parent, partner);
+      final r = service.performMint(parent, partner);
+      final child = r.children.first;
       expect(parent.mintCount, 1);
       expect(partner.mintCount, 1);
       expect(child.level, 0);
       expect(child.mintCount, 0);
       expect(child.durability, 100.0);
       expect(child.rarity, Rarity.common);
-    });
-
-    test('タイプは両親のどちらかを継承', () {
-      final service = MintService(rng: _FixedRandom(0.99, boolValue: false));
-      final child = service.performMint(
-          _shoe(), _shoe(id: 's2', type: ShoeType.jogger));
-      expect(child.type, ShoeType.jogger); // nextBool=false → partner側
+      // 属性はコモン帯(1〜10)でロールされている
+      final range = GameConfig.mintAttrRange[Rarity.common.index];
+      for (final a in ShoeAttr.values) {
+        expect(child.baseAttr(a), greaterThanOrEqualTo(range.$1));
+        expect(child.baseAttr(a), lessThanOrEqualTo(range.$2));
+      }
     });
 
     test('同レアリティの両親は10%で1段上が生まれる', () {
       final lucky = MintService(rng: _FixedRandom(0.05));
-      final child =
-          lucky.performMint(_shoe(), _shoe(id: 's2'));
+      final child = lucky.performMint(_shoe(), _shoe(id: 's2')).children.first;
       expect(child.rarity, Rarity.uncommon);
     });
 
     test('異なるレアリティなら低い方に揃う', () {
       final service = MintService(rng: _FixedRandom(0.05));
-      final child = service.performMint(
-          _shoe(rarity: Rarity.epic), _shoe(id: 's2'));
+      final child = service
+          .performMint(_shoe(rarity: Rarity.epic), _shoe(id: 's2'))
+          .children
+          .first;
       expect(child.rarity, Rarity.common);
     });
   });
 
-  group('フュージョン', () {
+  group('ミント消滅・双子', () {
+    test('消滅率テーブル(何回目のミントかで参照、7回目=100%)', () {
+      final service = MintService();
+      expect(service.vanishChance(_shoe(mintCount: 0)), 0.0); // 1回目
+      expect(service.vanishChance(_shoe(mintCount: 1)), 0.05); // 2回目
+      expect(service.vanishChance(_shoe(mintCount: 5)), 0.15); // 6回目
+      expect(service.vanishChance(_shoe(mintCount: 6)), 1.0); // 7回目
+    });
+
+    test('双子率 = 合計ミント回数×4%(上限48%)', () {
+      final service = MintService();
+      expect(service.twinChance(_shoe(mintCount: 0), _shoe(id: 's2')), 0.0);
+      expect(
+          service.twinChance(
+              _shoe(mintCount: 2), _shoe(id: 's2', mintCount: 2)),
+          closeTo(0.16, 1e-9));
+      expect(
+          service.twinChance(
+              _shoe(mintCount: 6), _shoe(id: 's2', mintCount: 6)),
+          0.48); // 上限
+    });
+
+    test('7回目の親は必ず消滅する', () {
+      final service = MintService(rng: _FixedRandom(0.99));
+      final worn = _shoe(mintCount: 6); // 次が7回目
+      final fresh = _shoe(id: 's2', mintCount: 0);
+      final r = service.performMint(worn, fresh);
+      expect(r.vanished.map((v) => v.id), contains('s1'));
+      expect(r.vanished.map((v) => v.id), isNot(contains('s2')));
+    });
+
+    test('双子は子2足になる', () {
+      // mintCount5+5=双子率0.4、消滅率0.15。rng0.2で消滅なし・双子あり
+      final service = MintService(rng: _FixedRandom(0.2));
+      final r = service.performMint(
+          _shoe(mintCount: 5), _shoe(id: 's2', mintCount: 5));
+      expect(r.children.length, 2);
+      expect(r.vanished, isEmpty);
+    });
+  });
+
+  group('エンハンス(同レア5足→上位)', () {
     List<Shoe> materials([Rarity rarity = Rarity.common]) => List.generate(
         5, (i) => _shoe(id: 'm$i', rarity: rarity, level: 0));
 
@@ -140,6 +182,59 @@ void main() {
       final lose = fail.performEnhance(materials());
       expect(lose.success, isFalse);
       expect(lose.shoe.rarity, Rarity.common);
+    });
+  });
+
+  group('フュージョン(ベース+生贄で属性底上げ)', () {
+    Shoe withAttrs(String id, Map<ShoeAttr, double> a,
+            {Rarity rarity = Rarity.rare}) =>
+        Shoe(id: id, type: ShoeType.walker, rarity: rarity, attrs: {
+          for (final at in ShoeAttr.values) at: a[at] ?? 1.0,
+        });
+
+    test('条件: 生贄null・別レアリティ・同一靴は不可', () {
+      final service = MintService();
+      final base = withAttrs('b', {});
+      expect(service.fusionBlockReason(base, null), isNotNull);
+      expect(service.fusionBlockReason(base, base), isNotNull);
+      expect(
+          service.fusionBlockReason(
+              base, withAttrs('s', {}, rarity: Rarity.epic)),
+          isNotNull);
+      expect(
+          service.fusionBlockReason(base, withAttrs('s', {})), isNull);
+    });
+
+    test('生贄が上回る属性だけ範囲内で底上げ(rng最大値→生贄値まで)', () {
+      final service = MintService(rng: _FixedRandom(1.0));
+      final base = withAttrs('b', {
+        ShoeAttr.efficiency: 10.5,
+        ShoeAttr.luck: 12.0,
+        ShoeAttr.comfort: 16.0,
+        ShoeAttr.resilience: 10.5,
+      });
+      final sacrifice = withAttrs('s', {
+        ShoeAttr.efficiency: 21.1,
+        ShoeAttr.luck: 12.0, // 同値=底上げなし
+        ShoeAttr.comfort: 18.8,
+        ShoeAttr.resilience: 10.0, // 下回る=底上げなし
+      });
+      final gains = service.performFusion(base, sacrifice);
+      expect(base.baseAttr(ShoeAttr.efficiency), closeTo(21.1, 1e-9));
+      expect(base.baseAttr(ShoeAttr.comfort), closeTo(18.8, 1e-9));
+      expect(base.baseAttr(ShoeAttr.luck), 12.0); // 変化なし
+      expect(base.baseAttr(ShoeAttr.resilience), 10.5); // 変化なし
+      expect(gains.keys, containsAll([ShoeAttr.efficiency, ShoeAttr.comfort]));
+      expect(gains.containsKey(ShoeAttr.luck), isFalse);
+    });
+
+    test('プレビューは上回る属性にのみ上限を返す', () {
+      final service = MintService();
+      final base = withAttrs('b', {ShoeAttr.efficiency: 10.0});
+      final sac = withAttrs('s', {ShoeAttr.efficiency: 20.0});
+      final preview = service.fusionPreview(base, sac);
+      expect(preview[ShoeAttr.efficiency]!.max, 20.0);
+      expect(preview[ShoeAttr.luck]!.max, isNull); // 両方1.0で同値
     });
   });
 

@@ -11,6 +11,7 @@ import '../widgets/gem_art.dart';
 import '../widgets/sneaker_art.dart';
 import '../widgets/stepn_button.dart';
 import 'enhance_screen.dart';
+import 'fusion_screen.dart';
 import 'mint_screen.dart';
 
 /// シューズ詳細: 4隅ソケット・属性バー・レベルアップ/リペア。
@@ -197,9 +198,43 @@ class ShoeDetailScreen extends StatelessWidget {
                                 fontSize: 11),
                           ],
                         ),
+                        if (shoe.unspentPoints > 0) ...[
+                          const SizedBox(height: 8),
+                          Container(
+                            width: double.infinity,
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 12, vertical: 7),
+                            decoration: BoxDecoration(
+                              color: RS.mint.withValues(alpha: 0.25),
+                              borderRadius: BorderRadius.circular(12),
+                              border: Border.all(color: RS.mintDark),
+                            ),
+                            child: Row(
+                              children: [
+                                const Icon(Icons.stars,
+                                    size: 16, color: RS.mintDark),
+                                const SizedBox(width: 6),
+                                Text(
+                                  '${S.unspentPoints}: ${shoe.unspentPoints}',
+                                  style: RS.label(size: 13),
+                                ),
+                                const Spacer(),
+                                Text('+ボタンで割り振り',
+                                    style: RS.body(size: 11, color: RS.grey)),
+                              ],
+                            ),
+                          ),
+                        ],
                         const SizedBox(height: 12),
                         for (final attr in ShoeAttr.values) ...[
-                          _AttrLine(shoe: shoe, attr: attr, gems: gems),
+                          _AttrLine(
+                            shoe: shoe,
+                            attr: attr,
+                            gems: gems,
+                            onAllocate: shoe.unspentPoints > 0
+                                ? () => state.allocatePoint(shoe, attr)
+                                : null,
+                          ),
                           const SizedBox(height: 10),
                         ],
                       ],
@@ -221,8 +256,11 @@ class ShoeDetailScreen extends StatelessWidget {
             borderRadius: BorderRadius.circular(28),
             border: Border.all(color: RS.mintDark, width: 1.5),
           ),
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+          child: SingleChildScrollView(
+            scrollDirection: Axis.horizontal,
+            padding: const EdgeInsets.symmetric(horizontal: 8),
+            child: Row(
+            spacing: 18,
             children: [
               _ActionItem(
                 icon: Icons.upgrade,
@@ -246,14 +284,23 @@ class ShoeDetailScreen extends StatelessWidget {
               ),
               _ActionItem(
                 icon: Icons.gavel,
-                label: S.fusion,
+                label: S.enhance,
                 onTap: () => Navigator.of(context).push(
                   MaterialPageRoute<void>(
                       builder: (_) => const EnhanceScreen()),
                 ),
               ),
+              _ActionItem(
+                icon: Icons.science_outlined,
+                label: S.fusion,
+                onTap: () => Navigator.of(context).push(
+                  MaterialPageRoute<void>(
+                      builder: (_) => FusionScreen(baseId: shoe.id)),
+                ),
+              ),
               _ActionItem(icon: Icons.sync_alt, label: S.transfer),
             ],
+            ),
           ),
         ),
       ),
@@ -564,6 +611,11 @@ class ShoeDetailScreen extends StatelessWidget {
                     : 'Lv ${shoe.level} → Lv ${shoe.level + 1}',
                 style: RS.label(size: 15),
               ),
+              if (!maxed) ...[
+                const SizedBox(height: 4),
+                Text(S.levelUpGrant,
+                    style: RS.body(size: 12, color: RS.mintDark)),
+              ],
               const SizedBox(height: 12),
               _CostRow(cost: cost),
               const SizedBox(height: 20),
@@ -770,11 +822,14 @@ class _BarLine extends StatelessWidget {
 
 class _AttrLine extends StatelessWidget {
   const _AttrLine(
-      {required this.shoe, required this.attr, required this.gems});
+      {required this.shoe, required this.attr, required this.gems, this.onAllocate});
 
   final Shoe shoe;
   final ShoeAttr attr;
   final List<Gem> gems;
+
+  /// 未割り当てポイントがある時、属性を+1する。nullなら+ボタン非表示。
+  final VoidCallback? onAllocate;
 
   @override
   Widget build(BuildContext context) {
@@ -819,10 +874,26 @@ class _AttrLine extends StatelessWidget {
         ),
         const SizedBox(width: 10),
         SizedBox(
-          width: 52,
+          width: 46,
           child: Text(total.toStringAsFixed(1),
               textAlign: TextAlign.right, style: RS.label(size: 14)),
         ),
+        if (onAllocate != null) ...[
+          const SizedBox(width: 6),
+          GestureDetector(
+            onTap: onAllocate,
+            child: Container(
+              width: 24,
+              height: 24,
+              decoration: BoxDecoration(
+                color: RS.mint,
+                shape: BoxShape.circle,
+                border: Border.all(color: RS.ink, width: 1.6),
+              ),
+              child: const Icon(Icons.add, size: 15),
+            ),
+          ),
+        ],
       ],
     );
   }

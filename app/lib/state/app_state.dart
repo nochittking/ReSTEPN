@@ -200,15 +200,26 @@ class AppState extends ChangeNotifier {
     notifyListeners();
   }
 
-  /// レベルアップ(SP消費・即時)。成功時true。
+  /// レベルアップ(SP消費・即時)。Lv+1 と振り分けポイント+4。成功時true。
   Future<bool> levelUpShoe(Shoe shoe) async {
     if (shoe.level >= GameConfig.maxLevel) return false;
     final cost = GameConfig.levelUpCost(shoe.level);
     if (spBalance < cost) return false;
     spBalance -= cost;
     shoe.level += 1;
+    shoe.unspentPoints += GameConfig.pointsPerLevel;
     await _storage.saveInventory(inventory);
     await _storage.saveBalances(sp: spBalance, gp: gpBalance);
+    notifyListeners();
+    return true;
+  }
+
+  /// 手動ポイント振り分け(1ポイント=対象属性+1)。成功時true。
+  Future<bool> allocatePoint(Shoe shoe, ShoeAttr attr) async {
+    if (shoe.unspentPoints <= 0) return false;
+    shoe.unspentPoints -= 1;
+    shoe.attrs[attr] = (shoe.attrs[attr] ?? 0) + 1.0;
+    await _storage.saveInventory(inventory);
     notifyListeners();
     return true;
   }
@@ -232,9 +243,10 @@ class AppState extends ChangeNotifier {
     return true;
   }
 
-  /// ミント実行。費用を消費し、新しい靴をインベントリに加える。
-  /// 残高不足・条件不足ならnull。
-  Future<Shoe?> mintShoes(Shoe parent, Shoe partner) async {
+  /// ミント実行。費用を消費し、子1〜2足を追加、消滅した親を除去する。
+  /// 結果(子・消滅親・双子か)を返す。残高不足・条件不足ならnull。
+  Future<({List<Shoe> children, List<Shoe> vanished, bool twin})?> mintShoes(
+      Shoe parent, Shoe partner) async {
     if (!mint.canMint(parent) || !mint.canMint(partner)) return null;
     if (parent.id == partner.id) return null;
     final cost = mint.mintCost(parent, partner);
@@ -242,14 +254,56 @@ class AppState extends ChangeNotifier {
 
     spBalance -= cost.sp;
     gpBalance -= cost.gp;
-    final child = mint.performMint(parent, partner);
-    inventory.shoes.add(child);
+    final result = mint.performMint(parent, partner);
+
+    // 消滅した親を除去(装着ジェム/スキンは外す)
+    for (final v in result.vanished) {
+      inventory.shoes.removeWhere((s) => s.id == v.id);
+      for (final gem in gems) {
+        if (gem.equippedShoeId == v.id) gem.equippedShoeId = null;
+      }
+      if (selectedShoeId == v.id) selectedShoeId = null;
+    }
+    inventory.shoes.addAll(result.children);
+    if (selectedShoeId == null || inventory.byId(selectedShoeId) == null) {
+      selectedShoeId =
+          inventory.shoes.isNotEmpty ? inventory.shoes.first.id : null;
+    }
 
     await _storage.saveInventory(inventory);
+    await _storage.saveGems(gems);
     await _storage.saveBalances(sp: spBalance, gp: gpBalance);
     _refreshEnergy();
     notifyListeners();
-    return child;
+    return (
+      children: result.children,
+      vanished: result.vanished,
+      twin: result.children.length > 1,
+    );
+  }
+
+  /// フュージョン実行。生贄を消費してベース靴の属性を底上げ。
+  /// 上がった属性→上げ幅を返す。条件・残高不足ならnull。
+  Future<Map<ShoeAttr, double>?> fuseShoes(Shoe base, Shoe sacrifice) async {
+    if (mint.fusionBlockReason(base, sacrifice) != null) return null;
+    final cost = mint.fusionCost(base.rarity);
+    if (spBalance < cost) return null;
+
+    spBalance -= cost;
+    final gains = mint.performFusion(base, sacrifice);
+    // 生贄を消費(装着ジェムは外す)
+    inventory.shoes.removeWhere((s) => s.id == sacrifice.id);
+    for (final gem in gems) {
+      if (gem.equippedShoeId == sacrifice.id) gem.equippedShoeId = null;
+    }
+    if (selectedShoeId == sacrifice.id) selectedShoeId = base.id;
+
+    await _storage.saveInventory(inventory);
+    await _storage.saveGems(gems);
+    await _storage.saveBalances(sp: spBalance, gp: gpBalance);
+    _refreshEnergy();
+    notifyListeners();
+    return gains;
   }
 
   /// フュージョン実行。素材5足と費用を消費し、結果の靴を返す。

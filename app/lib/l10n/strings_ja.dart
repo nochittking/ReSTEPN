@@ -77,6 +77,11 @@ class S {
   static const removeGem = 'ジェムを外す';
   static const equipGem = '装着する';
   static const selectGem = 'ジェムを選択';
+  static const enhance = 'エンハンス';
+  static const attrPlusPoint = '+ポイント';
+  static const unspentPoints = '未割り当てポイント';
+  static const levelUpGrant = 'レベルアップで振り分けポイント +4';
+  static const allocate = '割り振る';
 
   // ミント
   static const mintTitle = 'シューズミント';
@@ -91,15 +96,26 @@ class S {
   static const classLabel = 'クラス';
   static const shoeMintLabel = 'ミント回数';
 
-  // フュージョン
-  static const enhanceTitle = 'フュージョン';
-  static const enhanceButton = 'フュージョン';
+  // エンハンス(同レア5足→上位レアリティ)
+  static const enhanceTitle = 'エンハンス';
+  static const enhanceButton = 'エンハンス';
   static const enhanceNote = '同レアリティ5足を合成。成功で1段上、失敗でも同レアリティの靴が生まれます';
-  static const enhanceSuccess = 'フュージョン成功!レアリティアップ!';
+  static const enhanceSuccess = 'エンハンス成功!レアリティアップ!';
   static const enhanceFail = 'レアリティは上がらなかったが、新しい靴が誕生した';
   static const rainbowChance = 'レインボー確率(準備中)';
   static const notEnoughShoes = '同レアリティの靴が5足必要です';
   static const legendaryCannot = 'レジェンダリーは対象外です';
+
+  // フュージョン(ベース+生贄1足で属性底上げ)
+  static const fusionTitle = 'フュージョン';
+  static const fusionButton = 'フュージョン';
+  static const fusionNote = '生贄の値がベースを上回る属性を、範囲内でランダムに底上げします';
+  static const fusionBase = 'ベース(強化される靴)';
+  static const fusionSacrifice = '生贄の靴を選択';
+  static const fusionMatching = '同レアリティの靴';
+  static const fusionDone = 'フュージョン完了!属性が底上げされた';
+  static const fusionNoGain = '底上げできる属性がありませんでした';
+  static const baseAttributes = 'ベース属性';
 
   // 売却
   static const sellTitle = '売却';

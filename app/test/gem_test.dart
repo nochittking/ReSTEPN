@@ -33,8 +33,12 @@ void main() {
     });
 
     test('装着で属性値が(基礎+固定)×(1+割合)になる', () {
-      final shoe = Shoe(id: 's', type: ShoeType.walker, rarity: Rarity.rare);
-      // レアの基礎 = 18.0
+      final shoe = Shoe(
+        id: 's',
+        type: ShoeType.walker,
+        rarity: Rarity.rare,
+        attrs: {for (final a in ShoeAttr.values) a: 18.0},
+      );
       final gem = Gem(id: 'g', type: GemType.efficiency, level: 2);
       // (18+8) × 1.10 = 28.6
       expect(shoe.totalAttr(ShoeAttr.efficiency, [gem]),

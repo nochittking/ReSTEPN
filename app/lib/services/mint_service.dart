@@ -3,7 +3,7 @@ import 'dart:math';
 import '../config/game_config.dart';
 import '../models/shoe.dart';
 
-/// ミント・フュージョン・売却のロジック。RNGは注入可能(テスト用)。
+/// ミント・エンハンス・フュージョン・売却のロジック。RNGは注入可能(テスト用)。
 class MintService {
   MintService({Random? rng}) : _rng = rng ?? Random();
 
@@ -15,6 +15,8 @@ class MintService {
       '$prefix-${DateTime.now().microsecondsSinceEpoch}-${_seq++}';
 
   int _newSerial() => 10000000 + _rng.nextInt(899999999);
+
+  double _round1(double v) => (v * 10).round() / 10;
 
   // ---- ミント ----
 
@@ -46,35 +48,65 @@ class MintService {
     );
   }
 
-  /// ミント実行。新しい靴を返す(両親のmintCountはここで+1する)。
+  /// その親の消滅確率(何回目のミントか=mintCount+1 で参照。7回目=100%)。
+  double vanishChance(Shoe parent) {
+    final table = GameConfig.mintVanishByOccasion;
+    final i = parent.mintCount.clamp(0, table.length - 1);
+    return table[i];
+  }
+
+  /// 双子(子2足)確率 = 両親の合計ミント回数 × 4%(上限48%)。
+  double twinChance(Shoe parent, Shoe partner) {
+    final v = GameConfig.mintTwinStep * (parent.mintCount + partner.mintCount);
+    return v > GameConfig.mintTwinCap ? GameConfig.mintTwinCap : v;
+  }
+
+  /// ミント実行。子1〜2足(双子)と、消滅した親を返す。
   /// タイプは両親から50/50、レアリティは低い方を基準に、
-  /// 両親が同レアリティなら10%で1段上。
-  Shoe performMint(Shoe parent, Shoe partner) {
+  /// 両親が同レアリティなら10%で1段上。子の属性はレアリティ帯からランダム。
+  ({List<Shoe> children, List<Shoe> vanished}) performMint(
+      Shoe parent, Shoe partner) {
     assert(canMint(parent) && canMint(partner));
     assert(parent.id != partner.id);
 
-    final type = _rng.nextBool() ? parent.type : partner.type;
-    var rarity = parent.rarity.index <= partner.rarity.index
-        ? parent.rarity
-        : partner.rarity;
-    if (parent.rarity == partner.rarity &&
-        rarity != Rarity.legendary &&
-        _rng.nextDouble() < GameConfig.mintRarityUpChance) {
-      rarity = Rarity.values[rarity.index + 1];
+    // 消滅・双子は「増やす前」のミント回数で判定する。
+    final vanishP = _rng.nextDouble() < vanishChance(parent);
+    final vanishPartner = _rng.nextDouble() < vanishChance(partner);
+    final twin = _rng.nextDouble() < twinChance(parent, partner);
+
+    Shoe makeChild() {
+      final type = _rng.nextBool() ? parent.type : partner.type;
+      var rarity = parent.rarity.index <= partner.rarity.index
+          ? parent.rarity
+          : partner.rarity;
+      if (parent.rarity == partner.rarity &&
+          rarity != Rarity.legendary &&
+          _rng.nextDouble() < GameConfig.mintRarityUpChance) {
+        rarity = Rarity.values[rarity.index + 1];
+      }
+      return Shoe(
+        id: _newId('shoe-mint'),
+        type: type,
+        rarity: rarity,
+        serial: _newSerial(),
+        attrs: rollAttrs(rarity, _rng),
+      );
     }
+
+    final children = [makeChild(), if (twin) makeChild()];
 
     parent.mintCount += 1;
     partner.mintCount += 1;
 
-    return Shoe(
-      id: _newId('shoe-mint'),
-      type: type,
-      rarity: rarity,
-      serial: _newSerial(),
-    );
+    final vanished = [
+      if (vanishP) parent,
+      if (vanishPartner) partner,
+    ];
+
+    return (children: children, vanished: vanished);
   }
 
-  // ---- フュージョン ----
+  // ---- エンハンス(同レア5足 → 上位レアリティ挑戦) ----
 
   /// 素材の検証。問題なければnull、あれば理由を返す。
   String? enhanceBlockReason(List<Shoe> materials) {
@@ -86,7 +118,7 @@ class MintService {
       return 'レアリティが揃っていません';
     }
     if (rarity == Rarity.legendary) {
-      return 'レジェンダリーはフュージョンできません';
+      return 'レジェンダリーはエンハンスできません';
     }
     return null;
   }
@@ -99,24 +131,69 @@ class MintService {
   double enhanceSuccessRate(Rarity rarity) =>
       GameConfig.enhanceSuccessRate[rarity.index];
 
-  /// フュージョン実行。素材5足は呼び出し側で削除する。
-  /// 成功なら1段上、失敗でも同レアリティの新しい靴が必ず返る。
+  /// エンハンス実行。素材5足は呼び出し側で削除する。
+  /// 成功なら1段上、失敗でも同レアリティの新しい靴が必ず返る。属性はランダム。
   ({Shoe shoe, bool success}) performEnhance(List<Shoe> materials) {
     assert(enhanceBlockReason(materials) == null);
     final rarity = materials.first.rarity;
     final success = _rng.nextDouble() < enhanceSuccessRate(rarity);
-    final resultRarity =
-        success ? Rarity.values[rarity.index + 1] : rarity;
+    final resultRarity = success ? Rarity.values[rarity.index + 1] : rarity;
     final type = materials[_rng.nextInt(materials.length)].type;
     return (
       shoe: Shoe(
-        id: _newId('shoe-fusion'),
+        id: _newId('shoe-enhance'),
         type: type,
         rarity: resultRarity,
         serial: _newSerial(),
+        attrs: rollAttrs(resultRarity, _rng),
       ),
       success: success,
     );
+  }
+
+  // ---- フュージョン(ベース+生贄1足で属性を底上げ) ----
+
+  String? fusionBlockReason(Shoe base, Shoe? sacrifice) {
+    if (sacrifice == null) return '生贄の靴を選択してください';
+    if (sacrifice.id == base.id) return 'ベースと別の靴を選んでください';
+    if (sacrifice.rarity != base.rarity) return '同レアリティの靴が必要です';
+    return null;
+  }
+
+  double fusionCost(Rarity rarity) => GameConfig.fusionCostSp[rarity.index];
+
+  /// 属性ごとのプレビュー: current と、生贄が上回る場合の上限 max(なければnull)。
+  Map<ShoeAttr, ({double current, double? max})> fusionPreview(
+      Shoe base, Shoe sacrifice) {
+    return {
+      for (final a in ShoeAttr.values)
+        a: (
+          current: base.baseAttr(a),
+          max: sacrifice.baseAttr(a) > base.baseAttr(a)
+              ? sacrifice.baseAttr(a)
+              : null,
+        ),
+    };
+  }
+
+  /// フュージョン実行。生贄が上回る属性を「現在値〜生贄値」の範囲でランダム底上げ。
+  /// ベース靴を直接更新する。生贄の消費は呼び出し側で行う。
+  /// 実際に上がった属性→上げ幅を返す。
+  Map<ShoeAttr, double> performFusion(Shoe base, Shoe sacrifice) {
+    assert(fusionBlockReason(base, sacrifice) == null);
+    final gains = <ShoeAttr, double>{};
+    for (final a in ShoeAttr.values) {
+      final cur = base.baseAttr(a);
+      final sac = sacrifice.baseAttr(a);
+      if (sac > cur) {
+        final boosted = _round1(cur + _rng.nextDouble() * (sac - cur));
+        if (boosted > cur) {
+          gains[a] = _round1(boosted - cur);
+          base.attrs[a] = boosted;
+        }
+      }
+    }
+    return gains;
   }
 
   // ---- 売却 ----
