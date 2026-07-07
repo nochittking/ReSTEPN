@@ -80,8 +80,15 @@ class S {
   static const enhance = 'エンハンス';
   static const attrPlusPoint = '+ポイント';
   static const unspentPoints = '未割り当てポイント';
-  static const levelUpGrant = 'レベルアップで振り分けポイント +4';
   static const allocate = '割り振る';
+
+  // レベルアップ(クリティカル方式)
+  static const critChanceNote = '20%で2倍・5%で3倍のチャンス!';
+  static const milestoneNote = '節目レベル! 費用3倍・獲得ポイント2倍';
+  static const critNormal = 'レベルアップ!';
+  static const critBig = '大成功!!';
+  static const critSuper = '超大成功!!!';
+  static const pointsGained = 'ポイント獲得';
 
   // ミント
   static const mintTitle = 'シューズミント';
@@ -157,6 +164,7 @@ class S {
 
   // ショップ
   static const buy = '購入';
+  static const sale = 'SALE';
   static const lowestPrice = '価格が安い順';
   static const shopRefresh = '品揃えを更新';
   static const bought = '購入しました!';

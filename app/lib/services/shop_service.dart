@@ -3,21 +3,27 @@ import 'dart:math';
 import '../config/game_config.dart';
 import '../models/shoe.dart';
 
-/// ショップの商品(シューズ+価格)。
+/// ショップの商品(シューズ+価格)。[onSale] は半額セール品(掘り出し物)。
 class ShopListing {
-  ShopListing({required this.shoe, required this.priceSp});
+  ShopListing({required this.shoe, required this.priceSp, this.onSale = false});
 
   final Shoe shoe;
   final double priceSp;
+  final bool onSale;
+
+  /// セール前の元値(通常品は priceSp と同じ)。
+  double get originalPriceSp => onSale ? priceSp * 2 : priceSp;
 
   Map<String, dynamic> toJson() => {
         'shoe': shoe.toJson(),
         'priceSp': priceSp,
+        'onSale': onSale,
       };
 
   factory ShopListing.fromJson(Map<String, dynamic> json) => ShopListing(
         shoe: Shoe.fromJson(Map<String, dynamic>.from(json['shoe'] as Map)),
         priceSp: (json['priceSp'] as num).toDouble(),
+        onSale: json['onSale'] as bool? ?? false,
       );
 }
 
@@ -52,10 +58,16 @@ class ShopService {
       serial: 10000000 + _rng.nextInt(89999999),
       attrs: rollAttrs(rarity, _rng),
     );
-    final price = GameConfig.shopRarityPrice[rarity.index] +
+    // 属性ロールの良い個体ほど高い。まれに半額セール品(掘り出し物)が出る。
+    final attrTotal =
+        ShoeAttr.values.fold(0.0, (sum, a) => sum + shoe.baseAttr(a));
+    var price = GameConfig.shopRarityPrice[rarity.index] +
         level * 10.0 +
+        attrTotal * GameConfig.shopPricePerAttr +
         _rng.nextInt(30);
-    return ShopListing(shoe: shoe, priceSp: price);
+    final onSale = _rng.nextDouble() < GameConfig.shopSaleChance;
+    if (onSale) price /= 2;
+    return ShopListing(shoe: shoe, priceSp: price, onSale: onSale);
   }
 
   /// カタログを生成(価格昇順)。

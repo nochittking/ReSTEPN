@@ -239,13 +239,26 @@ void main() {
   });
 
   group('売却価格', () {
-    test('ショップ基準×0.4 + Lv×5', () {
+    test('ショップ基準×0.4 + Lv×5 + 属性合計×1.0', () {
       final service = MintService();
-      // コモン基準50 → 20.0 + Lv5×5 = 45.0
-      expect(service.sellPrice(_shoe(level: 5)), closeTo(45.0, 1e-9));
-      // レア基準400 → 160.0
+      // コモン基準50 → 20.0 + Lv5×5 + 属性(1.0×4) = 49.0
+      expect(service.sellPrice(_shoe(level: 5)), closeTo(49.0, 1e-9));
+      // レア基準400 → 160.0 + 属性4.0 = 164.0
       expect(service.sellPrice(_shoe(rarity: Rarity.rare, level: 0)),
-          closeTo(160.0, 1e-9));
+          closeTo(164.0, 1e-9));
+    });
+
+    test('育てた靴(属性が高い)ほど高く売れる', () {
+      final service = MintService();
+      final grown = Shoe(
+        id: 'g',
+        type: ShoeType.walker,
+        rarity: Rarity.common,
+        level: 5,
+        attrs: {for (final a in ShoeAttr.values) a: 25.0},
+      );
+      // 20.0 + 25 + 100 = 145.0
+      expect(service.sellPrice(grown), closeTo(145.0, 1e-9));
     });
   });
 }

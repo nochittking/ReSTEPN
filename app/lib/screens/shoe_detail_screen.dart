@@ -686,6 +686,11 @@ class ShoeDetailScreen extends StatelessWidget {
   void _showLevelUpDialog(BuildContext context, AppState state, Shoe shoe) {
     final cost = GameConfig.levelUpCost(shoe.level);
     final maxed = shoe.level >= GameConfig.maxLevel;
+    final milestone =
+        !maxed && GameConfig.milestoneLevels.contains(shoe.level + 1);
+    final basePoints = GameConfig.pointsPerLevelByRarity[shoe.rarity.index];
+    final canPay =
+        state.spBalance >= cost.sp && state.gpBalance >= cost.gp;
     showDialog<void>(
       context: context,
       builder: (dialogContext) => Dialog(
@@ -706,8 +711,27 @@ class ShoeDetailScreen extends StatelessWidget {
               ),
               if (!maxed) ...[
                 const SizedBox(height: 4),
-                Text(S.levelUpGrant,
+                Text('振り分けポイント +$basePoints',
                     style: RS.body(size: 12, color: RS.mintDark)),
+                Text(S.critChanceNote,
+                    style: RS.body(size: 12, color: RS.mintDark)),
+                if (milestone)
+                  Padding(
+                    padding: const EdgeInsets.only(top: 6),
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 12, vertical: 6),
+                      decoration: BoxDecoration(
+                        color: RS.purpleDeep.withValues(alpha: 0.1),
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(
+                            color: RS.purpleDeep.withValues(alpha: 0.5)),
+                      ),
+                      child: Text(S.milestoneNote,
+                          style:
+                              RS.label(size: 12, color: RS.purpleDeep)),
+                    ),
+                  ),
               ],
               const SizedBox(height: 12),
               _CostRow(cost: cost),
@@ -729,24 +753,75 @@ class ShoeDetailScreen extends StatelessWidget {
                       label: S.confirm,
                       height: 48,
                       fontSize: 14,
-                      onTap: maxed || state.spBalance < cost
+                      onTap: maxed || !canPay
                           ? null
                           : () async {
-                              await state.levelUpShoe(shoe);
+                              final result = await state.levelUpShoe(shoe);
                               if (dialogContext.mounted) {
                                 Navigator.of(dialogContext).pop();
+                              }
+                              if (result != null && context.mounted) {
+                                _showLevelUpResult(context, result);
                               }
                             },
                     ),
                   ),
                 ],
               ),
-              if (!maxed && state.spBalance < cost)
+              if (!maxed && !canPay)
                 Padding(
                   padding: const EdgeInsets.only(top: 8),
                   child: Text(S.notEnoughSp,
                       style: RS.body(size: 12, color: RS.red)),
                 ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  /// レベルアップの結果演出。クリティカル段階で色と文言が変わる。
+  void _showLevelUpResult(
+      BuildContext context, ({int points, int critTier}) result) {
+    final (title, color, icon) = switch (result.critTier) {
+      2 => (S.critSuper, RS.purpleDeep, Icons.auto_awesome),
+      1 => (S.critBig, const Color(0xFFE8940A), Icons.celebration),
+      _ => (S.critNormal, RS.mintDark, Icons.upgrade),
+    };
+    showDialog<void>(
+      context: context,
+      builder: (dialogContext) => Dialog(
+        shape:
+            RoundedRectangleBorder(borderRadius: BorderRadius.circular(28)),
+        child: Padding(
+          padding: const EdgeInsets.all(24),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(icon, size: 44, color: color),
+              const SizedBox(height: 8),
+              Text(title, style: RS.label(size: 22, color: color)),
+              const SizedBox(height: 10),
+              Container(
+                padding: const EdgeInsets.symmetric(
+                    horizontal: 22, vertical: 10),
+                decoration: BoxDecoration(
+                  color: color.withValues(alpha: 0.1),
+                  borderRadius: BorderRadius.circular(999),
+                  border: Border.all(color: color.withValues(alpha: 0.5)),
+                ),
+                child: Text('${S.pointsGained} +${result.points}pt',
+                    style: RS.label(size: 17, color: color)),
+              ),
+              const SizedBox(height: 18),
+              StepnButton(
+                label: 'OK',
+                height: 46,
+                fontSize: 15,
+                width: 150,
+                onTap: () => Navigator.of(dialogContext).pop(),
+              ),
             ],
           ),
         ),
@@ -1025,10 +1100,13 @@ class _EffectRow extends StatelessWidget {
 class _CostRow extends StatelessWidget {
   const _CostRow({required this.cost});
 
-  final double cost;
+  final ({double sp, double gp}) cost;
 
   @override
   Widget build(BuildContext context) {
+    final text = cost.gp > 0
+        ? '${cost.sp.toStringAsFixed(1)} SP + ${cost.gp.toStringAsFixed(1)} GP'
+        : '${cost.sp.toStringAsFixed(1)} SP';
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 12),
       decoration: BoxDecoration(
@@ -1040,7 +1118,7 @@ class _CostRow extends StatelessWidget {
         children: [
           Text(S.cost, style: RS.label(size: 13, color: RS.grey)),
           const Spacer(),
-          Text('${cost.toStringAsFixed(1)} SP', style: RS.label(size: 16)),
+          Text(text, style: RS.label(size: 16)),
         ],
       ),
     );

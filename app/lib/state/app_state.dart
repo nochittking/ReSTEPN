@@ -26,14 +26,19 @@ class AppState extends ChangeNotifier {
     GemService? gemService,
     ShopService? shopService,
     MintService? mintService,
+    Random? rng,
   })  : _storage = storage ?? Storage(),
         _gemService = gemService ?? GemService(),
         _shopService = shopService ?? ShopService(),
-        mint = mintService ?? MintService();
+        mint = mintService ?? MintService(),
+        _rng = rng ?? Random();
 
   final Storage _storage;
   final GemService _gemService;
   final ShopService _shopService;
+
+  /// レベルアップのクリティカル抽選などに使う(テスト注入可)。
+  final Random _rng;
 
   /// ミント・フュージョン・売却ロジック(画面から費用計算等も参照する)
   final MintService mint;
@@ -234,18 +239,37 @@ class AppState extends ChangeNotifier {
     notifyListeners();
   }
 
-  /// レベルアップ(SP消費・即時)。Lv+1 と振り分けポイント+4。成功時true。
-  Future<bool> levelUpShoe(Shoe shoe) async {
-    if (shoe.level >= GameConfig.maxLevel) return false;
+  /// レベルアップ(SP/GP消費・即時)。Lv+1 とレアリティ別ポイント付与。
+  /// クリティカル抽選(critTier: 0=通常/1=大成功×2/2=超大成功×3)と
+  /// 節目レベル(10/20/30)のポイント2倍が乗る。
+  /// 残高不足・最大Lvなら null。
+  Future<({int points, int critTier})?> levelUpShoe(Shoe shoe) async {
+    if (shoe.level >= GameConfig.maxLevel) return null;
     final cost = GameConfig.levelUpCost(shoe.level);
-    if (spBalance < cost) return false;
-    spBalance -= cost;
+    if (spBalance < cost.sp || gpBalance < cost.gp) return null;
+    spBalance -= cost.sp;
+    gpBalance -= cost.gp;
     shoe.level += 1;
-    shoe.unspentPoints += GameConfig.pointsPerLevel;
+
+    final r = _rng.nextDouble();
+    final critTier = r < GameConfig.levelUpSuperCritChance
+        ? 2
+        : (r <
+                GameConfig.levelUpSuperCritChance +
+                    GameConfig.levelUpCritChance
+            ? 1
+            : 0);
+    var points = GameConfig.pointsPerLevelByRarity[shoe.rarity.index] *
+        (critTier + 1);
+    if (GameConfig.milestoneLevels.contains(shoe.level)) {
+      points *= GameConfig.milestonePointFactor;
+    }
+    shoe.unspentPoints += points;
+
     await _storage.saveInventory(inventory);
     await _storage.saveBalances(sp: spBalance, gp: gpBalance);
     notifyListeners();
-    return true;
+    return (points: points, critTier: critTier);
   }
 
   /// 手動ポイント振り分け(1ポイント=対象属性+1)。成功時true。

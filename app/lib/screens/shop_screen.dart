@@ -111,8 +111,24 @@ class ShopScreen extends StatelessWidget {
                         ),
                       ),
                       Expanded(
-                          child: Center(
-                              child: SneakerArt(shoe: shoe, size: 115))),
+                        child: Stack(
+                          children: [
+                            Center(
+                                child: SneakerArt(shoe: shoe, size: 115)),
+                            if (listing.onSale)
+                              Positioned(
+                                top: 6,
+                                left: 8,
+                                child: PillBadge(
+                                  text: S.sale,
+                                  color: RS.red,
+                                  textColor: RS.white,
+                                  fontSize: 11,
+                                ),
+                              ),
+                          ],
+                        ),
+                      ),
                       PillBadge(
                         text: shoe.serialLabel,
                         color: RS.white,
@@ -141,11 +157,37 @@ class ShopScreen extends StatelessWidget {
                         child: Row(
                           children: [
                             Expanded(
-                              child: Text(
-                                listing.priceSp.toStringAsFixed(0),
-                                style: RS.number(size: 20),
-                                overflow: TextOverflow.ellipsis,
-                              ),
+                              child: listing.onSale
+                                  ? Column(
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.start,
+                                      children: [
+                                        Text(
+                                          listing.originalPriceSp
+                                              .toStringAsFixed(0),
+                                          style: RS
+                                              .body(
+                                                  size: 11,
+                                                  color: RS.grey)
+                                              .copyWith(
+                                                  decoration: TextDecoration
+                                                      .lineThrough),
+                                        ),
+                                        Text(
+                                          listing.priceSp
+                                              .toStringAsFixed(0),
+                                          style: RS.number(
+                                              size: 18, color: RS.red),
+                                          overflow:
+                                              TextOverflow.ellipsis,
+                                        ),
+                                      ],
+                                    )
+                                  : Text(
+                                      listing.priceSp.toStringAsFixed(0),
+                                      style: RS.number(size: 20),
+                                      overflow: TextOverflow.ellipsis,
+                                    ),
                             ),
                             StepnButton(
                               label: S.buy,

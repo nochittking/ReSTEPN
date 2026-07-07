@@ -198,8 +198,14 @@ class MintService {
 
   // ---- 売却 ----
 
-  double sellPrice(Shoe shoe) =>
-      GameConfig.shopRarityPrice[shoe.rarity.index] *
-          GameConfig.sellPriceFactor +
-      shoe.level * GameConfig.sellPricePerLevel;
+  /// 売却価格 = ショップ基準×0.4 + Lv×5 + 属性合計×1.0。
+  /// 振り分け・フュージョンで育てた靴ほど高く売れる。
+  double sellPrice(Shoe shoe) {
+    final attrTotal =
+        ShoeAttr.values.fold(0.0, (sum, a) => sum + shoe.baseAttr(a));
+    return GameConfig.shopRarityPrice[shoe.rarity.index] *
+            GameConfig.sellPriceFactor +
+        shoe.level * GameConfig.sellPricePerLevel +
+        attrTotal * GameConfig.sellPricePerAttr;
+  }
 }

@@ -53,8 +53,22 @@ class GameConfig {
     (40, 60), // レジェンダリー
   ];
 
-  /// レベルアップで得られる手動振り分けポイント数
-  static const int pointsPerLevel = 4;
+  /// レベルアップで得られる手動振り分けポイント数(レアリティ別・基礎値)。
+  /// 実付与はクリティカル抽選で倍率が乗る(下記)。
+  static const List<int> pointsPerLevelByRarity = [4, 6, 8, 10, 12];
+
+  /// レベルアップの当たり抽選: 大成功(×2)/超大成功(×3)。
+  /// 1ロールで r < superCrit → ×3、r < superCrit+crit → ×2、他 ×1。
+  static const double levelUpCritChance = 0.20;
+  static const double levelUpSuperCritChance = 0.05;
+
+  /// 節目レベル(到達Lv)。費用が跳ね上がる代わりにポイント付与が倍増する。
+  static const Set<int> milestoneLevels = {10, 20, 30};
+  static const double milestoneCostFactor = 3.0;
+
+  /// 節目レベルはSP費用の1/10のGPも要求する。
+  static const double milestoneGpRatio = 0.1;
+  static const int milestonePointFactor = 2;
 
   /// 旧データ移行フォールバック用(attrs無しJSONを近似再現)。ライブ計算では不使用。
   static const List<double> rarityBaseAttr = [1.0, 8.0, 18.0, 30.0, 45.0];
@@ -64,8 +78,18 @@ class GameConfig {
   /// 最大レベル
   static const int maxLevel = 30;
 
-  /// レベルアップ費用: SP (Lv+1)×10
-  static double levelUpCost(int currentLevel) => (currentLevel + 1) * 10.0;
+  /// レベルアップ費用: SP (到達Lv)×10。節目レベル(10/20/30)は費用3倍+
+  /// GP(SP費用の1/10)を併用する。
+  static ({double sp, double gp}) levelUpCost(int currentLevel) {
+    final targetLevel = currentLevel + 1;
+    var sp = targetLevel * 10.0;
+    var gp = 0.0;
+    if (milestoneLevels.contains(targetLevel)) {
+      sp *= milestoneCostFactor;
+      gp = sp * milestoneGpRatio;
+    }
+    return (sp: sp, gp: gp);
+  }
 
   // ---- フュージョン(ベース+生贄1足で属性を底上げ) ----
 
@@ -147,17 +171,23 @@ class GameConfig {
 
   // ---- 売却 ----
 
-  /// 売却価格 = ショップ基準価格 × 0.4 + Lv × 5
+  /// 売却価格 = ショップ基準価格 × 0.4 + Lv × 5 + 属性合計 × 1.0
+  /// (育成した靴ほど高く売れる)
   static const double sellPriceFactor = 0.4;
   static const double sellPricePerLevel = 5.0;
+  static const double sellPricePerAttr = 1.0;
 
   // ---- ショップ ----
 
   /// ショップ掲載数
   static const int shopCatalogSize = 8;
 
-  /// 価格: 基礎50SP + レアリティ係数 + Lv×10
+  /// 価格: レアリティ基準 + Lv×10 + 属性合計×1.5 + 乱数(0〜29)
   static const List<double> shopRarityPrice = [50, 150, 400, 900, 2000];
+  static const double shopPricePerAttr = 1.5;
+
+  /// 掘り出し物: この確率で半額セール品が出品される。
+  static const double shopSaleChance = 0.08;
 
   // ---- チート検出 ----
 
