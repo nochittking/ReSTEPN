@@ -155,6 +155,12 @@ function buildSeed() {
     }
     await page.waitForTimeout(1200);
   };
+  // 結果ダイアログ(OKのみ)はFlutter Webのセマンティクス更新が止まるため
+  // Escで閉じる(barrierDismissible=trueのダイアログはEscでポップされる)。
+  const dismissDialog = async () => {
+    await page.keyboard.press('Escape');
+    await page.waitForTimeout(1200);
+  };
 
   // 1. ホーム(ヒーローカード)
   await shot('01-home');
@@ -187,7 +193,7 @@ function buildSeed() {
   await tapRole('決定');
   await page.waitForTimeout(1200);
   await shot('09-levelup-result'); // クリティカル演出(出目のまま撮影)
-  await tapRoleLast('OK');
+  await dismissDialog();
   await page.waitForTimeout(800);
   await shot('10-detail-points'); // 未割り当てポイントのバナー
 
@@ -225,7 +231,7 @@ function buildSeed() {
   await tapRoleLast('ミント', { exact: true });
   await page.waitForTimeout(1500);
   await shot('18-mint-result');
-  await tapRoleLast('OK');
+  await dismissDialog();
   await page.waitForTimeout(800);
   await tapRole('戻る'); // ミント画面から詳細へ
   await page.waitForTimeout(600);
@@ -245,7 +251,7 @@ function buildSeed() {
   await tapRoleLast('フュージョン', { exact: true });
   await page.waitForTimeout(1500);
   await shot('20-fusion-result');
-  await tapRoleLast('OK');
+  await dismissDialog();
   await page.waitForTimeout(800);
   await tapRole('戻る'); // フュージョン画面から詳細へ
   await page.waitForTimeout(600);
@@ -263,7 +269,7 @@ function buildSeed() {
   await tapRole('決定');
   await page.waitForTimeout(1500);
   await shot('23-enhance-result');
-  await tapRoleLast('OK');
+  await dismissDialog();
   await page.waitForTimeout(800);
 
   // 11. ジェム / ランキング
