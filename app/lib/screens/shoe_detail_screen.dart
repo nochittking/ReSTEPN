@@ -308,7 +308,6 @@ class ShoeDetailScreen extends StatelessWidget {
                       builder: (_) => FusionScreen(baseId: shoe.id)),
                 ),
               ),
-              _ActionItem(icon: Icons.sync_alt, label: S.transfer),
             ],
             ),
           ),

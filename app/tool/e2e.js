@@ -9,6 +9,7 @@ require('fs').mkdirSync(SHOT_DIR, { recursive: true });
 
 // デモデータ(UI確認しやすいように残高・シューズ・ジェム等を投入)。
 // shared_preferences(web)は値をJSONエンコードした文字列で保存するため二重エンコードする。
+// インベントリは旧形式(attrs無し)のまま=旧データ移行パスの動作確認を兼ねる。
 function buildSeed() {
   const now = new Date();
   const iso = now.toISOString();
@@ -23,7 +24,8 @@ function buildSeed() {
     'restep.inventory': [
       { id: 'shoe-initial', type: 'walker', rarity: 'common', level: 5, durability: 95.0, mintCount: 0, serial: 778894978 },
       { id: 'shoe-2', type: 'jogger', rarity: 'rare', level: 12, durability: 88.5, mintCount: 2, serial: 311458571 },
-      { id: 'shoe-3', type: 'runner', rarity: 'epic', level: 8, durability: 100.0, mintCount: 0, serial: 45441 },
+      // Lv9 = 次のレベルアップが節目Lv10(費用3倍+GP・ポイント2倍)
+      { id: 'shoe-3', type: 'runner', rarity: 'epic', level: 9, durability: 100.0, mintCount: 0, serial: 45441 },
       { id: 'shoe-4', type: 'allRounder', rarity: 'legendary', level: 22, durability: 100.0, mintCount: 7, serial: 9441 },
       { id: 'shoe-5', type: 'walker', rarity: 'common', level: 2, durability: 100.0, mintCount: 0, serial: 605516131 },
       { id: 'shoe-6', type: 'jogger', rarity: 'common', level: 0, durability: 100.0, mintCount: 0, serial: 21466847 },
@@ -42,6 +44,25 @@ function buildSeed() {
       { id: 'gem-c1', type: 'comfort', level: 1, equippedShoeId: null },
       { id: 'gem-r1', type: 'resilience', level: 1, equippedShoeId: null },
     ],
+    // 半額セール品(掘り出し物)入りのショップカタログ
+    'restep.shop': [
+      {
+        shoe: { id: 'shop-1', type: 'walker', rarity: 'common', level: 1, durability: 100.0, mintCount: 0, serial: 33018274, attrs: { efficiency: 6.2, luck: 4.1, comfort: 8.8, resilience: 3.5 } },
+        priceSp: 103.9, onSale: false,
+      },
+      {
+        shoe: { id: 'shop-2', type: 'runner', rarity: 'epic', level: 3, durability: 100.0, mintCount: 0, serial: 90781263, attrs: { efficiency: 38.2, luck: 29.1, comfort: 33.5, resilience: 27.8 } },
+        priceSp: 570.2, onSale: true, // 元値1140.4の掘り出し物
+      },
+      {
+        shoe: { id: 'shop-3', type: 'jogger', rarity: 'uncommon', level: 0, durability: 100.0, mintCount: 0, serial: 55103377, attrs: { efficiency: 15.3, luck: 9.9, comfort: 12.4, resilience: 16.7 } },
+        priceSp: 246.5, onSale: false,
+      },
+      {
+        shoe: { id: 'shop-4', type: 'allRounder', rarity: 'rare', level: 2, durability: 100.0, mintCount: 0, serial: 71442905, attrs: { efficiency: 22.6, luck: 18.3, comfort: 25.1, resilience: 20.9 } },
+        priceSp: 553.4, onSale: false,
+      },
+    ],
     'restep.boxes': [
       { id: 'box-1', obtainedAt: iso },
       { id: 'box-2', obtainedAt: iso },
@@ -54,6 +75,7 @@ function buildSeed() {
     'restep.energy': { energy: 20.0, lastUpdateUtc: iso },
     'restep.profile': { name: 'nochittking', totalKm: 22736.0 },
     'restep.daily': { dayKey: dayKey, sp: 601.2 },
+    // restep.skins はシードしない=初回スターター配布の動作確認
   };
 
   let script = '';
@@ -123,103 +145,141 @@ function buildSeed() {
     await page.waitForTimeout(1000);
   };
   const tapText = async (text, { nth = 0, exact = false } = {}) => {
-    await page
-      .getByText(text, { exact })
-      .nth(nth)
-      .evaluate((el) => el.click());
+    try {
+      await page
+        .getByText(text, { exact })
+        .nth(nth)
+        .evaluate((el) => el.click(), { timeout: 8000 });
+    } catch (e) {
+      console.log('  (skip tapText:', text, ')');
+    }
     await page.waitForTimeout(1200);
   };
 
-  // 1. ホーム
+  // 1. ホーム(ヒーローカード)
   await shot('01-home');
 
-  // 2. スタート → 3-2-1カウントダウン → ムーブ
+  // 2. スタート → 3-2-1カウントダウン → ムーブ → リザルト
   await tapRole('スタート');
   await page.waitForTimeout(3200);
   await shot('02-move');
   await page.waitForTimeout(9000); // 獲得が進むのを待つ
   await shot('03-move-earning');
-
-  // 3. ストップ → リザルト
   await tapRole('ストップ');
   await page.waitForTimeout(1500);
   await shot('04-result');
   await tapRole('ホームへ戻る');
   await shot('05-home-after');
 
-  // 4. シューズタブ(グリッド)
+  // 3. シューズタブ(グリッド)
   await tapRole('シューズ');
   await shot('06-sneakers');
 
-  // 5. シューズ詳細(レジェンダリー オールラウンダー)
-  await tapRole('オールラウンダー');
+  // 4. シューズ詳細(エピック ランナー Lv9): スキンスロット+属性+アクションバー
+  await tapRole('エピック ランナー');
   await page.waitForTimeout(800);
   await shot('07-shoe-detail');
 
-  // 6. リペアダイアログ
-  await tapRole('リペア');
-  await shot('08-repair');
-  await tapRole('キャンセル');
-
-  // 7. ジェムギャラリー / 強化
-  await page.goBack(); // シューズ詳細から戻る
-  await page.waitForTimeout(1200);
-  await tapRole('ジェム');
-  await shot('09-gems');
-  await tapRole('強化');
-  await shot('10-gem-upgrade');
-
-  // 8. ランキング
-  await tapRole('ランキング');
-  await shot('11-ranking');
-
-  // 9. ショップ
-  await tapRole('ショップ');
-  await shot('12-shop');
-
-  // 10. ミント(レア ジョガー Lv12 を親に)
-  await tapRole('シューズ');
+  // 5. 節目レベルアップ(Lv9→10): 費用3倍+GP・ポイント2倍の警告
+  await tapRole('レベルアップ');
   await page.waitForTimeout(800);
-  await tapRole('シューズ'); // セグメントを「シューズ」に戻す
+  await shot('08-levelup-milestone');
+  await tapRole('決定');
+  await page.waitForTimeout(1200);
+  await shot('09-levelup-result'); // クリティカル演出(出目のまま撮影)
+  await tapRoleLast('OK');
+  await page.waitForTimeout(800);
+  await shot('10-detail-points'); // 未割り当てポイントのバナー
+
+  // 6. スキン装着: ピッカー → オーロラ装着で見た目が変わる
+  await tapText('スキン未装着(元の見た目)');
+  await page.waitForTimeout(800);
+  await shot('11-skin-picker');
+  await tapText('オーロラ');
+  await page.waitForTimeout(1000);
+  await shot('12-detail-skinned');
+
+  // 7. その他タブ = スキン一覧(装着状況)
+  await page.goBack();
+  await page.waitForTimeout(1200);
+  await shot('13-grid-skinned');
+  await tapRole('その他');
+  await page.waitForTimeout(800);
+  await shot('14-skins-gallery');
+
+  // 8. ミント(レア ジョガー Lv12 mint2 を親に): 消滅%/双子%チップ
+  await tapRole('シューズ', { nth: 1 }); // セグメントを「シューズ」に戻す
   await page.waitForTimeout(800);
   await tapRole('レア ジョガー');
   await page.waitForTimeout(800);
   await tapRole('ミント', { exact: true });
   await page.waitForTimeout(1000);
-  await shot('13-mint');
+  await shot('15-mint');
   await tapRole('相方のシューズを選択');
   await page.waitForTimeout(800);
-  await shot('14-mint-picker');
+  await shot('16-mint-picker');
   await tapRole('候補 コモン ウォーカー');
   await tapRole('決定');
   await page.waitForTimeout(800);
-  await shot('15-mint-ready');
+  await shot('17-mint-odds'); // 消滅リスク・双子確率の事前表示
   await tapRoleLast('ミント', { exact: true });
   await page.waitForTimeout(1500);
-  await shot('16-mint-result');
+  await shot('18-mint-result');
   await tapRoleLast('OK');
   await page.waitForTimeout(800);
-  await tapRole('戻る'); // ミント画面からシューズ詳細へ
+  await tapRole('戻る'); // ミント画面から詳細へ
   await page.waitForTimeout(600);
-  await tapRole('戻る'); // 詳細からシューズタブへ
+  await page.goBack(); // 詳細からシューズタブへ
   await page.waitForTimeout(800);
 
-  // 11. フュージョン(コモン5足)。適当なコモン靴の詳細→フュージョン
+  // 9. フュージョン(ベース+生贄で属性底上げ)
   await tapRole('コモン ウォーカー');
   await page.waitForTimeout(800);
   await tapRole('フュージョン', { exact: true });
   await page.waitForTimeout(1000);
+  await tapText('生贄の靴を選択');
+  await page.waitForTimeout(800);
+  await tapRole('生贄 コモン ウォーカー');
+  await page.waitForTimeout(800);
+  await shot('19-fusion-preview'); // 属性表(底上げ範囲は緑)
+  await tapRoleLast('フュージョン', { exact: true });
+  await page.waitForTimeout(1500);
+  await shot('20-fusion-result');
+  await tapRoleLast('OK');
+  await page.waitForTimeout(800);
+  await tapRole('戻る'); // フュージョン画面から詳細へ
+  await page.waitForTimeout(600);
+
+  // 10. エンハンス(同レア5足→上位挑戦)
+  await tapRole('エンハンス', { exact: true });
+  await page.waitForTimeout(1000);
   for (let i = 0; i < 5; i++) {
     await tapRole('素材', { nth: i });
   }
-  await shot('17-enhance');
-  await tapRoleLast('フュージョン', { exact: true });
+  await shot('21-enhance');
+  await tapRoleLast('エンハンス', { exact: true });
   await page.waitForTimeout(800);
-  await shot('18-enhance-confirm');
+  await shot('22-enhance-confirm');
   await tapRole('決定');
   await page.waitForTimeout(1500);
-  await shot('19-enhance-result');
+  await shot('23-enhance-result');
   await tapRoleLast('OK');
+  await page.waitForTimeout(800);
+
+  // 11. ジェム / ランキング
+  await tapRole('戻る'); // エンハンス画面からタブへ
+  await page.waitForTimeout(800);
+  await tapRole('ジェム');
+  await shot('24-gems');
+  await tapRole('強化');
+  await shot('25-gem-upgrade');
+  await tapRole('ランキング');
+  await shot('26-ranking');
+
+  // 12. ショップ(SALEピル+取り消し線の元値)
+  await tapRole('ショップ');
+  await page.waitForTimeout(800);
+  await shot('27-shop-sale');
 
   await browser.close();
   console.log('E2E done');

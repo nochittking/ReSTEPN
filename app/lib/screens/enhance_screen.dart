@@ -149,24 +149,6 @@ class _EnhanceScreenState extends State<EnhanceScreen> {
                         textAlign: TextAlign.center,
                         style: RS.body(size: 11.5, color: RS.grey)),
                   ),
-                  const SizedBox(height: 10),
-
-                  // レインボー確率トグル(準備中・装飾)
-                  Container(
-                    padding: const EdgeInsets.symmetric(
-                        horizontal: 16, vertical: 4),
-                    decoration: BoxDecoration(
-                      color: const Color(0xFFE4E3DC),
-                      borderRadius: BorderRadius.circular(999),
-                    ),
-                    child: Row(
-                      children: [
-                        Switch(value: false, onChanged: null),
-                        const SizedBox(width: 4),
-                        Text(S.rainbowChance, style: RS.label(size: 13)),
-                      ],
-                    ),
-                  ),
                   const SizedBox(height: 14),
 
                   // レアリティタブ

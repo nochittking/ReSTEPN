@@ -67,7 +67,6 @@ class S {
   static const mint = 'ミント';
   static const sell = '売却';
   static const fusion = 'フュージョン';
-  static const transfer = '転送';
   static const durability = '耐久度';
   static const cost = '費用';
   static const cancel = 'キャンセル';
@@ -112,7 +111,6 @@ class S {
   static const enhanceNote = '同レアリティ5足を合成。成功で1段上、失敗でも同レアリティの靴が生まれます';
   static const enhanceSuccess = 'エンハンス成功!レアリティアップ!';
   static const enhanceFail = 'レアリティは上がらなかったが、新しい靴が誕生した';
-  static const rainbowChance = 'レインボー確率(準備中)';
   static const notEnoughShoes = '同レアリティの靴が5足必要です';
   static const legendaryCannot = 'レジェンダリーは対象外です';
 

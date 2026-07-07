@@ -1,11 +1,11 @@
 {
-    "name": "restep_mvp",
-    "short_name": "restep_mvp",
+    "name": "RE:STEP",
+    "short_name": "RE:STEP",
     "start_url": ".",
     "display": "standalone",
-    "background_color": "#0175C2",
-    "theme_color": "#0175C2",
-    "description": "A new Flutter project.",
+    "background_color": "#F6F5EF",
+    "theme_color": "#F6F5EF",
+    "description": "RE:STEP - 歩いて育てる、自分だけのMove to Earnシミュレーター",
     "orientation": "portrait-primary",
     "prefer_related_applications": false,
     "icons": [
