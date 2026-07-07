@@ -247,7 +247,8 @@ function buildSeed() {
   await page.waitForTimeout(1000);
   await tapText('生贄の靴を選択');
   await page.waitForTimeout(800);
-  await tapRole('生贄 コモン ウォーカー');
+  // Lv6のウォーカー(ベースLv5より属性が高い)を生贄に=底上げが発生する
+  await tapRole('生贄 コモン ウォーカー', { nth: 1 });
   await page.waitForTimeout(800);
   await shot('19-fusion-preview'); // 属性表(底上げ範囲は緑)
   await tapRoleLast('フュージョン', { exact: true });
@@ -275,8 +276,10 @@ function buildSeed() {
   await page.waitForTimeout(800);
 
   // 11. ジェム / ランキング
-  await tapRole('戻る'); // エンハンス画面からタブへ
+  await tapRole('戻る'); // エンハンス画面から詳細へ
   await page.waitForTimeout(800);
+  await page.goBack(); // 詳細からシューズタブへ
+  await page.waitForTimeout(1200);
   await tapRole('ジェム');
   await shot('24-gems');
   await tapRole('強化');
