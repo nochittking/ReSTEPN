@@ -214,7 +214,9 @@ function buildSeed() {
   await shot('14-skins-gallery');
 
   // 8. ミント(レア ジョガー Lv12 mint2 を親に): 消滅%/双子%チップ
-  await tapRole('シューズ', { nth: 1 }); // セグメントを「シューズ」に戻す
+  // セグメントを「シューズ」に戻す(下部タブとセグメントで同名のため両方タップ)
+  await tapRole('シューズ');
+  await tapRole('シューズ', { nth: 1 });
   await page.waitForTimeout(800);
   await tapRole('レア ジョガー');
   await page.waitForTimeout(800);
