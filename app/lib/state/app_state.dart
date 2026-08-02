@@ -4,12 +4,14 @@ import 'dart:math';
 import 'package:flutter/foundation.dart';
 
 import '../config/game_config.dart';
+import '../models/club.dart';
 import '../models/gem.dart';
 import '../models/move_session.dart';
 import '../models/mystery_box.dart';
 import '../models/shoe.dart';
 import '../models/shoe_inventory.dart';
 import '../models/skin.dart';
+import '../services/club_service.dart';
 import '../services/energy_manager.dart';
 import '../services/gem_service.dart';
 import '../services/location_provider.dart';
@@ -37,6 +39,9 @@ class AppState extends ChangeNotifier {
   final GemService _gemService;
   final ShopService _shopService;
 
+  /// クラブ対抗戦(日付シードで決定的なので保存は所属と自分の走行kmのみ)。
+  final club = const ClubService();
+
   /// レベルアップのクリティカル抽選などに使う(テスト注入可)。
   final Random _rng;
 
@@ -59,6 +64,22 @@ class AppState extends ChangeNotifier {
   // デイリー獲得SP(JST4:00リセット)
   String _dailyKey = '';
   double dailyEarnedSp = 0;
+
+  // ---- クラブ対抗戦 ----
+
+  /// 所属クラブID(null = 未加入)。
+  String? clubId;
+
+  /// 集計中の週キー(`ClubService.weekKeyFor`)。
+  String clubWeekKey = '';
+
+  /// 今週の自分の貢献km。
+  double clubMyKm = 0;
+
+  /// 未消化の前週決算結果(画面で表示したら `consumeClubResult` で消す)。
+  ClubWeekResult? lastClubResult;
+
+  Club? get myClub => clubById(clubId);
 
   String? selectedShoeId;
   EarnMode selectedMode = EarnMode.sp;
@@ -154,6 +175,89 @@ class AppState extends ChangeNotifier {
     }
   }
 
+  // ---- クラブ対抗戦 ----
+
+  /// クラブに加入する(週の集計は今週ぶんから始まる)。
+  Future<void> joinClub(String id) async {
+    if (clubById(id) == null) return;
+    clubId = id;
+    clubWeekKey = club.weekKeyFor(DateTime.now().toUtc());
+    clubMyKm = 0;
+    await _storage.saveClub(
+        clubId: clubId, weekKey: clubWeekKey, myKm: clubMyKm);
+    notifyListeners();
+  }
+
+  /// 前週結果バナーを消化する(表示側が一度読んだら消す)。
+  ClubWeekResult? consumeClubResult() {
+    final result = lastClubResult;
+    if (result == null) return null;
+    lastClubResult = null;
+    notifyListeners();
+    return result;
+  }
+
+  /// 週をまたいでいたら前週を決算して報酬を配り、今週ぶんをリセットする。
+  /// 未加入・同一週なら何もしない。
+  Future<void> _rolloverClubIfNeeded() async {
+    final mine = myClub;
+    if (mine == null) return;
+    final currentKey = club.weekKeyFor(DateTime.now().toUtc());
+    if (clubWeekKey == currentKey) return;
+
+    final previousStart = club.weekStartFromKey(clubWeekKey);
+    if (previousStart != null) {
+      final opponent = club.pickOpponent(clubWeekKey, mine.id);
+      final outcome = club.settle(mine, opponent, previousStart, clubMyKm);
+
+      final rewardSp = outcome.won
+          ? GameConfig.clubWinRewardSp
+          : GameConfig.clubLoseRewardSp;
+      spBalance += rewardSp;
+
+      // 勝利ボーナスのボックスはスロットに空きがあるときだけ受け取れる
+      var rewardBoxes = 0;
+      if (outcome.won) {
+        final free = GameConfig.boxSlots - boxes.length;
+        rewardBoxes = min(GameConfig.clubWinRewardBoxes, max(0, free));
+        for (var i = 0; i < rewardBoxes; i++) {
+          boxes.add(MysteryBox(
+            id: 'box-club-${DateTime.now().microsecondsSinceEpoch}-$i',
+            obtainedAt: DateTime.now(),
+          ));
+        }
+      }
+
+      lastClubResult = ClubWeekResult(
+        weekKey: clubWeekKey,
+        myClubName: mine.name,
+        opponentName: opponent.name,
+        won: outcome.won,
+        myTotal: outcome.myTotal,
+        oppTotal: outcome.oppTotal,
+        rewardSp: rewardSp,
+        rewardBoxes: rewardBoxes,
+      );
+
+      await _storage.saveBalances(sp: spBalance, gp: gpBalance);
+      await _storage.saveBoxes(boxes);
+    }
+
+    clubWeekKey = currentKey;
+    clubMyKm = 0;
+    await _storage.saveClub(
+        clubId: clubId, weekKey: clubWeekKey, myKm: clubMyKm);
+  }
+
+  /// ムーブで走ったkmをクラブ貢献に加算する(週跨ぎなら先に決算)。
+  Future<void> _addClubKm(double km) async {
+    if (myClub == null) return;
+    await _rolloverClubIfNeeded();
+    clubMyKm += km;
+    await _storage.saveClub(
+        clubId: clubId, weekKey: clubWeekKey, myKm: clubMyKm);
+  }
+
   Future<void> load() async {
     final savedInventory = await _storage.loadInventory();
     if (savedInventory == null) {
@@ -196,6 +300,13 @@ class AppState extends ChangeNotifier {
     _dailyKey = daily?.dayKey ?? '';
     dailyEarnedSp = daily?.sp ?? 0;
     _rolloverDailyIfNeeded();
+
+    final savedClub = await _storage.loadClub();
+    clubId = savedClub?.clubId;
+    clubWeekKey = savedClub?.weekKey ?? '';
+    clubMyKm = savedClub?.myKm ?? 0;
+    // 前回起動から週をまたいでいたらここで前週を決算する
+    await _rolloverClubIfNeeded();
 
     shopCatalog = await _storage.loadShopCatalog();
     if (shopCatalog.isEmpty) {
@@ -650,6 +761,7 @@ class AppState extends ChangeNotifier {
     }
 
     totalKm += engine.distanceMeters / 1000;
+    await _addClubKm(engine.distanceMeters / 1000);
     sessions.insert(0, session);
     lastResult = session;
     _engine = null;

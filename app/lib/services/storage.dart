@@ -22,6 +22,7 @@ class Storage {
   static const _keyDaily = 'restep.daily';
   static const _keyShop = 'restep.shop';
   static const _keyProfile = 'restep.profile';
+  static const _keyClub = 'restep.club';
 
   Future<SharedPreferences> get _prefs => SharedPreferences.getInstance();
 
@@ -155,6 +156,28 @@ class Storage {
     return (
       name: map['name'] as String? ?? 'RUNNER',
       totalKm: (map['totalKm'] as num?)?.toDouble() ?? 0.0,
+    );
+  }
+
+  /// クラブ対抗戦の所属と今週の貢献km。未加入なら保存しない。
+  Future<void> saveClub({
+    required String? clubId,
+    required String weekKey,
+    required double myKm,
+  }) async {
+    (await _prefs).setString(
+        _keyClub,
+        jsonEncode({'clubId': clubId, 'weekKey': weekKey, 'myKm': myKm}));
+  }
+
+  Future<({String? clubId, String weekKey, double myKm})?> loadClub() async {
+    final raw = (await _prefs).getString(_keyClub);
+    if (raw == null) return null;
+    final map = Map<String, dynamic>.from(jsonDecode(raw) as Map);
+    return (
+      clubId: map['clubId'] as String?,
+      weekKey: map['weekKey'] as String? ?? '',
+      myKm: (map['myKm'] as num?)?.toDouble() ?? 0.0,
     );
   }
 }

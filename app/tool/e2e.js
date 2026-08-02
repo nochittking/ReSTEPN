@@ -18,6 +18,11 @@ function buildSeed() {
   const jst = new Date(now.getTime() + 9 * 3600000);
   const shifted = new Date(jst.getTime() - 4 * 3600000);
   const dayKey = `${shifted.getUTCFullYear()}-${shifted.getUTCMonth() + 1}-${shifted.getUTCDate()}`;
+  // ClubService.weekKeyForと同じ計算(JST4:00境界の週を月曜まで巻き戻す)
+  const shiftedDay = new Date(Date.UTC(shifted.getUTCFullYear(), shifted.getUTCMonth(), shifted.getUTCDate()));
+  const isoWeekday = shiftedDay.getUTCDay() === 0 ? 7 : shiftedDay.getUTCDay(); // 月曜=1
+  const weekStart = new Date(shiftedDay.getTime() - (isoWeekday - 1) * 86400000);
+  const weekKey = `${weekStart.getUTCFullYear()}-${weekStart.getUTCMonth() + 1}-${weekStart.getUTCDate()}`;
 
   const data = {
     'restep.balances': { sp: 4921.31, gp: 1578.89 },
@@ -75,6 +80,9 @@ function buildSeed() {
     'restep.energy': { energy: 20.0, lastUpdateUtc: iso },
     'restep.profile': { name: 'nochittking', totalKm: 22736.0 },
     'restep.daily': { dayKey: dayKey, sp: 601.2 },
+    // クラブ対抗戦: 疾風ランナーズに加入済み・今週すでに18.4km貢献した状態
+    // (weekKeyはClubService.weekKeyForと同じ計算=JST4:00境界の週開始日)
+    'restep.club': { clubId: 'gale', weekKey: weekKey, myKm: 18.4 },
     // restep.skins はシードしない=初回スターター配布の動作確認
   };
 
@@ -287,10 +295,17 @@ function buildSeed() {
   await tapRole('ランキング');
   await shot('26-ranking');
 
-  // 12. ショップ(SALEピル+取り消し線の元値)
+  // 12. クラブ対抗戦(今週の対戦カード・勢力バー・メンバー別km)
+  await tapRole('クラブ');
+  await page.waitForTimeout(800);
+  await shot('27-club-battle');
+  await tapRole('個人');
+  await page.waitForTimeout(600);
+
+  // 13. ショップ(SALEピル+取り消し線の元値)
   await tapRole('ショップ');
   await page.waitForTimeout(800);
-  await shot('27-shop-sale');
+  await shot('28-shop-sale');
 
   await browser.close();
   console.log('E2E done');

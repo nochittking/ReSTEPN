@@ -189,6 +189,42 @@ class GameConfig {
   /// 掘り出し物: この確率で半額セール品が出品される。
   static const double shopSaleChance = 0.08;
 
+  // ---- クラブ対抗戦(週間・NPCクラブと合計km勝負) ----
+
+  /// NPC1名の1日あたり走行距離(km)。実値はこの範囲 × ペース係数。
+  static const double clubNpcKmMin = 2.0;
+  static const double clubNpcKmMax = 10.0;
+
+  /// NPCごとのペース係数(足の速さの個体差)。
+  static const double clubNpcPaceMin = 0.7;
+  static const double clubNpcPaceMax = 1.3;
+
+  /// 週間決算の報酬。
+  static const double clubWinRewardSp = 300.0;
+  static const double clubLoseRewardSp = 50.0;
+
+  /// 勝利時のミステリーボックス(スロットに空きがある場合のみ)。
+  static const int clubWinRewardBoxes = 1;
+
+  // ---- すれ違いエンカウント(ムーブ中にNPCからギフト) ----
+
+  /// ムーブ10分ごとの遭遇率。
+  static const double encounterChancePer10Min = 0.15;
+
+  /// 遭遇時のギフト抽選しきい値(累積・小さいほどレア)。
+  static const double encounterSkinChance = 0.005;
+  static const double encounterBoxChance = 0.05;
+  static const double encounterGpChance = 0.30;
+
+  /// ギフト量の範囲。
+  static const double encounterSpMin = 5.0;
+  static const double encounterSpMax = 20.0;
+  static const double encounterGpMin = 2.0;
+  static const double encounterGpMax = 8.0;
+
+  /// スキン獲得時のレアリティ重み(コモン→レジェンダリー)。
+  static const List<int> encounterSkinRarityWeights = [40, 30, 20, 8, 2];
+
   // ---- チート検出 ----
 
   /// この速度を超える瞬間速度のサンプルは棄却する(km/h)

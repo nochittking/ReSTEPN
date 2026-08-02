@@ -160,6 +160,26 @@ class S {
   static const endingIn = '締切まで';
   static const rankingNote = '※ランキングはローカルの記録+架空プレイヤーです';
 
+  // クラブ対抗戦
+  static const segPersonal = '個人';
+  static const segClub = 'クラブ';
+  static const clubJoinTitle = 'クラブを選ぼう';
+  static const clubJoinLead = '所属すると毎週、別のクラブと合計距離で勝負します。';
+  static const clubJoin = 'このクラブに入る';
+  static const clubMembers = 'メンバー';
+  static const clubThisWeek = '今週の対戦';
+  static const clubVs = 'VS';
+  static const clubMyContribution = 'あなたの貢献';
+  static const clubMemberKm = 'メンバー別の距離';
+  static const clubDayElapsed = '経過';
+  static const clubDayLeft = '残り';
+  static const clubDayUnit = '日';
+  static const clubResultWin = '先週は勝利!';
+  static const clubResultLose = '先週は敗北…';
+  static const clubResultTapToClose = 'タップで閉じる';
+  static const clubRewardBox = 'ボックス';
+  static const clubNote = '※対戦相手・NPCの距離は日付から決まる演出です';
+
   // ショップ
   static const buy = '購入';
   static const sale = 'SALE';

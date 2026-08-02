@@ -1,6 +1,7 @@
 import 'dart:math';
 
 import '../models/move_session.dart';
+import '../models/npc.dart';
 
 /// ランキング期間。
 enum RankPeriod { week, month, allTime }
@@ -26,12 +27,8 @@ class RankEntry {
 /// 自分の実績(履歴の期間集計)+シード固定の擬似プレイヤーで順位表を作る。
 /// ※個人利用アプリのための演出。擬似プレイヤー名は自作の架空名。
 class RankingService {
-  static const _botNames = [
-    'hayate_run', 'mochi_walk', 'sakura_step', 'kaze_dash', 'yozora_jog',
-    'tsuki_usagi', 'shio_ramen', 'inu_daisuki', 'neko_punch', 'aozora_km',
-    'genki_maru', 'yama_nobori', 'asa_sanpo', 'niji_runner', 'poteto_kun',
-    'kori_azuki', 'tama_chan', 'fuji_hiker', 'umi_kaze', 'hoshi_mite',
-  ];
+  /// 擬似プレイヤー名は `models/npc.dart` でクラブ/エンカウントと共有する。
+  static const _botNames = npcNames;
 
   /// 期間内の自分の獲得SP合計。
   double myPoints(List<MoveSession> sessions, RankPeriod period,
