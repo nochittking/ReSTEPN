@@ -25,6 +25,7 @@ class MoveSession {
     required this.rejectedSamples,
     this.consumedDurability = 0,
     this.boxesObtained = 0,
+    this.encounters = 0,
   });
 
   final DateTime startedAt;
@@ -37,6 +38,9 @@ class MoveSession {
   final double consumedEnergy;
   final double consumedDurability;
   final int boxesObtained;
+
+  /// すれ違いエンカウントでギフトを貰った回数
+  final int encounters;
 
   /// チート検出(瞬間移動・速度スパイク)で棄却したGPSサンプル数
   final int rejectedSamples;
@@ -67,6 +71,7 @@ class MoveSession {
         'consumedEnergy': consumedEnergy,
         'consumedDurability': consumedDurability,
         'boxesObtained': boxesObtained,
+        'encounters': encounters,
         'rejectedSamples': rejectedSamples,
       };
 
@@ -82,6 +87,7 @@ class MoveSession {
         consumedDurability:
             (json['consumedDurability'] as num?)?.toDouble() ?? 0,
         boxesObtained: json['boxesObtained'] as int? ?? 0,
+        encounters: json['encounters'] as int? ?? 0,
         rejectedSamples: json['rejectedSamples'] as int? ?? 0,
       );
 }

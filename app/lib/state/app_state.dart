@@ -12,6 +12,7 @@ import '../models/shoe.dart';
 import '../models/shoe_inventory.dart';
 import '../models/skin.dart';
 import '../services/club_service.dart';
+import '../services/encounter_service.dart';
 import '../services/energy_manager.dart';
 import '../services/gem_service.dart';
 import '../services/location_provider.dart';
@@ -28,16 +29,22 @@ class AppState extends ChangeNotifier {
     GemService? gemService,
     ShopService? shopService,
     MintService? mintService,
+    EncounterService? encounterService,
     Random? rng,
   })  : _storage = storage ?? Storage(),
         _gemService = gemService ?? GemService(),
         _shopService = shopService ?? ShopService(),
         mint = mintService ?? MintService(),
+        _encounterService = encounterService ?? EncounterService(),
         _rng = rng ?? Random();
 
   final Storage _storage;
   final GemService _gemService;
   final ShopService _shopService;
+  final EncounterService _encounterService;
+
+  /// 直近のムーブで貰ったすれ違いギフト(リザルト画面が表示する)。
+  List<EncounterGift> lastEncounters = [];
 
   /// クラブ対抗戦(日付シードで決定的なので保存は所属と自分の走行kmのみ)。
   final club = const ClubService();
@@ -739,6 +746,34 @@ class AppState extends ChangeNotifier {
       ));
     }
 
+    // すれ違いエンカウント(ボックスドロップ後の空きスロットで判定する)
+    final encounters = _encounterService.rollEncounters(
+      movedSeconds: elapsedSeconds,
+      freeBoxSlots: GameConfig.boxSlots - boxes.length,
+    );
+    var skinObtained = false;
+    for (var i = 0; i < encounters.length; i++) {
+      final gift = encounters[i];
+      switch (gift.kind) {
+        case GiftKind.sp:
+          spBalance += gift.amount;
+        case GiftKind.gp:
+          gpBalance += gift.amount;
+        case GiftKind.box:
+          boxes.add(MysteryBox(
+            id: 'box-enc-${DateTime.now().microsecondsSinceEpoch}-$i',
+            obtainedAt: DateTime.now(),
+          ));
+        case GiftKind.skin:
+          if (gift.skin != null) {
+            skins.add(gift.skin!);
+            skinObtained = true;
+          }
+      }
+    }
+    if (skinObtained) await _storage.saveSkins(skins);
+    lastEncounters = encounters;
+
     final session = MoveSession(
       startedAt: startedAt,
       endedAt: DateTime.now(),
@@ -750,6 +785,7 @@ class AppState extends ChangeNotifier {
       consumedEnergy: consumedEnergyThisMove,
       consumedDurability: consumedDurabilityThisMove,
       boxesObtained: drops,
+      encounters: encounters.length,
       rejectedSamples: engine.rejectedSamples,
     );
 

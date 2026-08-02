@@ -46,6 +46,12 @@ class S {
   static const backToHome = 'ホームへ戻る';
   static const slotsFull = 'スロットが満杯です';
 
+  // すれ違いエンカウント
+  static const encounterTitle = 'すれ違い';
+  static const encounterGaveYou = 'から';
+  static const encounterBox = 'ミステリーボックス';
+  static const encounterSkinLead = 'スキンをゆずってもらった!';
+
   // シューズタブ
   static const segSneakers = 'シューズ';
   static const segGems = 'ジェム';

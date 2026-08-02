@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 import '../l10n/strings_ja.dart';
 import '../models/gem.dart';
 import '../models/move_session.dart';
+import '../services/encounter_service.dart';
 import '../state/app_state.dart';
 import '../theme/restep_theme.dart';
 import '../widgets/gem_art.dart';
@@ -246,6 +247,31 @@ class ResultScreen extends StatelessWidget {
             ),
           ),
 
+          // すれ違いセクション(貰い物が無い回は表示しない)
+          if (state.lastEncounters.isNotEmpty)
+            Padding(
+              padding: const EdgeInsets.fromLTRB(20, 20, 20, 0),
+              child: StepnCard(
+                radius: 22,
+                padding: const EdgeInsets.all(14),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        const Icon(Icons.handshake, size: 20),
+                        const SizedBox(width: 8),
+                        Text(S.encounterTitle, style: RS.label(size: 15)),
+                      ],
+                    ),
+                    const SizedBox(height: 8),
+                    for (final gift in state.lastEncounters)
+                      _EncounterRow(gift: gift),
+                  ],
+                ),
+              ),
+            ),
+
           // 装飾ルートイラスト
           Padding(
             padding: const EdgeInsets.fromLTRB(20, 12, 20, 0),
@@ -330,6 +356,65 @@ class _BigStat extends StatelessWidget {
         const SizedBox(height: 2),
         Text(label, style: RS.label(size: 13, color: RS.grey)),
       ],
+    );
+  }
+}
+
+/// すれ違い1件ぶんの行。スキンだけは特別扱いで名前も出す。
+class _EncounterRow extends StatelessWidget {
+  const _EncounterRow({required this.gift});
+
+  final EncounterGift gift;
+
+  ({IconData icon, Color color, String text}) get _gift => switch (gift.kind) {
+        GiftKind.sp => (
+            icon: Icons.directions_walk,
+            color: RS.ink,
+            text: '+ ${gift.amount.toStringAsFixed(1)} SP',
+          ),
+        GiftKind.gp => (
+            icon: Icons.hexagon_outlined,
+            color: RS.purpleDeep,
+            text: '+ ${gift.amount.toStringAsFixed(1)} GP',
+          ),
+        GiftKind.box => (
+            icon: Icons.inventory_2,
+            color: RS.orange,
+            text: S.encounterBox,
+          ),
+        GiftKind.skin => (
+            icon: Icons.auto_awesome,
+            color: RS.mintDark,
+            text: gift.skin?.name ?? '',
+          ),
+      };
+
+  @override
+  Widget build(BuildContext context) {
+    final g = _gift;
+    final isSkin = gift.kind == GiftKind.skin;
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 5),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Icon(g.icon, size: 18, color: g.color),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text('${gift.npcName} ${S.encounterGaveYou}',
+                    style: RS.body(size: 12, color: RS.grey)),
+                if (isSkin)
+                  Text(S.encounterSkinLead,
+                      style: RS.label(size: 12, color: RS.mintDark)),
+                Text(g.text, style: RS.label(size: 14, color: g.color)),
+              ],
+            ),
+          ),
+        ],
+      ),
     );
   }
 }
