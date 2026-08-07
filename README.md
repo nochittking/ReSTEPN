@@ -38,7 +38,7 @@ STEPNコンティンジェンシー計画のリポジトリです。
 ```bash
 cd app
 flutter pub get
-flutter test                 # 単体・統合テスト(64件)
+flutter test                 # 単体・統合テスト(128件)
 flutter run -d chrome        # Webで起動(シミュレーションモードで動作確認可)
 flutter build web --no-web-resources-cdn   # オフライン環境向けWebビルド
 ```
