@@ -114,9 +114,10 @@ class S {
   // エンハンス(同レア5足→上位レアリティ)
   static const enhanceTitle = 'エンハンス';
   static const enhanceButton = 'エンハンス';
-  static const enhanceNote = '同レアリティ5足を合成。成功で1段上、失敗でも同レアリティの靴が生まれます';
+  static const enhanceNote = '同レアリティ5足を合成。失敗はなく必ず1段上へ進化し、大成功なら2段階アップします';
   static const enhanceSuccess = 'エンハンス成功!レアリティアップ!';
-  static const enhanceFail = 'レアリティは上がらなかったが、新しい靴が誕生した';
+  static const enhanceGreat = '大成功!2段階アップ!';
+  static const greatChance = '大成功率';
   static const notEnoughShoes = '同レアリティの靴が5足必要です';
   static const legendaryCannot = 'レジェンダリーは対象外です';
 

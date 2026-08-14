@@ -140,7 +140,7 @@ class _EnhanceScreenState extends State<EnhanceScreen> {
                   const SizedBox(height: 8),
                   Center(
                     child: Text(
-                      '${S.successRate}: ${(state.mint.enhanceSuccessRate(_rarity) * 100).toStringAsFixed(0)}%',
+                      '${S.greatChance}: ${(state.mint.enhanceGreatChance(_rarity) * 100).toStringAsFixed(0)}%',
                       style: RS.label(size: 15, color: RS.orange),
                     ),
                   ),
@@ -336,7 +336,7 @@ class _EnhanceScreenState extends State<EnhanceScreen> {
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Text(result.success ? S.enhanceSuccess : S.enhanceFail,
+              Text(result.great ? S.enhanceGreat : S.enhanceSuccess,
                   textAlign: TextAlign.center, style: RS.label(size: 17)),
               const SizedBox(height: 16),
               SneakerArt(shoe: result.shoe, size: 150),

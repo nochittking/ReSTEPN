@@ -482,9 +482,10 @@ class AppState extends ChangeNotifier {
     return gains;
   }
 
-  /// フュージョン実行。素材5足と費用を消費し、結果の靴を返す。
+  /// エンハンス実行。素材5足と費用を消費し、結果の靴を返す。
+  /// 失敗は無く、必ず1段上(大成功なら2段階上)へ進化する。
   /// 条件・残高不足ならnull。
-  Future<({Shoe shoe, bool success})?> enhanceShoes(
+  Future<({Shoe shoe, bool great, int steps})?> enhanceShoes(
       List<Shoe> materials) async {
     if (mint.enhanceBlockReason(materials) != null) return null;
     final cost = mint.enhanceCost(materials.first.rarity);
