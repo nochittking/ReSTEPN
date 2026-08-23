@@ -172,6 +172,12 @@ class _HomeScreenState extends State<HomeScreen> {
                 ),
                 const SizedBox(height: 12),
 
+                // 復帰ボーナスの予告(しばらく走っていないときだけ出る)
+                if (state.hasComebackBonus) ...[
+                  _ComebackNotice(days: state.comebackGapDays),
+                  const SizedBox(height: 12),
+                ],
+
                 // 報酬モード選択(SP/GP排他)
                 Row(
                   children: [
@@ -263,6 +269,38 @@ class _HomeScreenState extends State<HomeScreen> {
 }
 
 /// 上部バー: アバター+累計km / SP・GP残高ピル
+/// 復帰ボーナスの予告。しばらく走っていないときだけホームに出る。
+/// 「サボった」ではなく「戻ってきた」ことを歓迎する文面にする。
+class _ComebackNotice extends StatelessWidget {
+  const _ComebackNotice({required this.days});
+
+  final int days;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+      decoration: BoxDecoration(
+        color: RS.orange.withValues(alpha: 0.14),
+        borderRadius: BorderRadius.circular(999),
+        border: Border.all(color: RS.orange, width: 2),
+      ),
+      child: Row(
+        children: [
+          const Icon(Icons.celebration, size: 20, color: RS.orange),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Text(
+              S.comebackReady(days),
+              style: RS.label(size: 12),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
 class _TopBar extends StatelessWidget {
   const _TopBar({required this.state});
 

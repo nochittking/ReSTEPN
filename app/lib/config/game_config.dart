@@ -134,6 +134,47 @@ class GameConfig {
   static const double boxBaseChancePer10Min = 0.05;
   static const double boxChancePerLuck = 0.002;
 
+  // ---- 復帰ボーナス ----
+  //
+  // 走れなかった日が続いたあとのムーブほど、ボックスが出やすくなる。
+  // 「サボった罰」ではなく「戻ってきたことへの報酬」として設計する。
+  //
+  // 意図的に休んで倍率を稼ぐ動きへの抑止は不要。走らない機会損失のほうが常に大きい。
+  // 例) 30分/日なら1日3回抽選。6日休んで倍率1.2倍にしても 3回×6% = 0.18個 だが、
+  //     6日走れば 18回×5% = 0.9個。休むほうが5倍損をする。
+
+  /// 休止日数 → ボックス出現率の倍率。閾値を超えた最大の段が適用される。
+  /// 休止1〜2日は日常の範囲とみなして対象外(前日に走っていれば休止1日)。
+  static const List<(int days, double multiplier)> comebackBonusTiers = [
+    (3, 1.2),
+    (7, 1.5),
+    (14, 2.0),
+  ];
+
+  /// この日数以上あいた復帰では、確率とは別にボックスを確定で付与する。
+  static const int comebackGuaranteedDays = 14;
+  static const int comebackGuaranteedBoxes = 1;
+
+  /// 確定枠を受け取るのに必要な最低ムーブ時間(秒)。
+  /// 確率抽選のほうは10分ごとの判定なので、この下限は自然に効いている。
+  static const int comebackMinMoveSeconds = 600;
+
+  /// 休止日数に対応する倍率を返す(該当なしは1.0)。
+  static double comebackMultiplierFor(int gapDays) {
+    var multiplier = 1.0;
+    for (final tier in comebackBonusTiers) {
+      if (gapDays >= tier.$1) multiplier = tier.$2;
+    }
+    return multiplier;
+  }
+
+  /// 休止日数とムーブ時間から、確定付与されるボックス数を返す。
+  static int comebackGuaranteedFor(int gapDays, int movedSeconds) {
+    if (gapDays < comebackGuaranteedDays) return 0;
+    if (movedSeconds < comebackMinMoveSeconds) return 0;
+    return comebackGuaranteedBoxes;
+  }
+
   // ---- ミント(2足から新しい靴を生成) ----
 
   /// ミント可能条件: レベル5以上・ミント回数7未満

@@ -46,6 +46,20 @@ class S {
   static const backToHome = 'ホームへ戻る';
   static const slotsFull = 'スロットが満杯です';
 
+  // 復帰ボーナス
+  static const comebackBonus = '復帰ボーナス';
+
+  /// 「12日ぶりのムーブ」
+  static String comebackDays(int days) => '$days日ぶりのムーブ';
+
+  /// 「ボックスが出やすくなりました ×1.5」
+  static String comebackRate(double multiplier) =>
+      'ボックスが出やすくなりました ×${multiplier.toStringAsFixed(1)}';
+
+  /// ホーム画面の予告。「7日ぶり — 走るとボックスが出やすくなります」
+  static String comebackReady(int days) =>
+      '$days日ぶり — 走るとボックスが出やすくなります';
+
   // すれ違いエンカウント
   static const encounterTitle = 'すれ違い';
   static const encounterGaveYou = 'から';

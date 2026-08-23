@@ -53,16 +53,24 @@ class GemService {
 
   /// ムーブ結果からのボックスドロップ判定。
   /// 10分ごとに 基礎5%+幸運×0.2% で1回判定する。獲得数を返す。
+  ///
+  /// [chanceMultiplier] は復帰ボーナスによる出現率の倍率(通常は1.0)。
+  /// [guaranteedDrops] は抽選と無関係に先取りする確定枠。
+  /// どちらも [freeSlots] を超えて獲得することはない。
   int rollBoxDrops({
     required int movedSeconds,
     required double luck,
     required int freeSlots,
+    double chanceMultiplier = 1.0,
+    int guaranteedDrops = 0,
   }) {
+    if (freeSlots <= 0) return 0;
     final chances = movedSeconds ~/ 600;
-    final p = (GameConfig.boxBaseChancePer10Min +
-            luck * GameConfig.boxChancePerLuck)
+    final p = ((GameConfig.boxBaseChancePer10Min +
+                luck * GameConfig.boxChancePerLuck) *
+            chanceMultiplier)
         .clamp(0.0, 0.9);
-    var drops = 0;
+    var drops = min(max(0, guaranteedDrops), freeSlots);
     for (var i = 0; i < chances && drops < freeSlots; i++) {
       if (_rng.nextDouble() < p) drops++;
     }

@@ -26,6 +26,7 @@ class MoveSession {
     this.consumedDurability = 0,
     this.boxesObtained = 0,
     this.encounters = 0,
+    this.comebackGapDays = 0,
   });
 
   final DateTime startedAt;
@@ -44,6 +45,17 @@ class MoveSession {
 
   /// チート検出(瞬間移動・速度スパイク)で棄却したGPSサンプル数
   final int rejectedSamples;
+
+  /// このムーブが「何日ぶり」だったか(前回ムーブからの休止日数)。
+  /// 0 = 同じ日にすでに走っている、または初回。
+  final int comebackGapDays;
+
+  /// このムーブに乗った復帰ボーナスの倍率(通常は1.0)。
+  double get comebackMultiplier =>
+      GameConfig.comebackMultiplierFor(comebackGapDays);
+
+  /// 復帰ボーナスが効いたムーブか。
+  bool get hasComebackBonus => comebackMultiplier > 1.0;
 
   double get averageSpeedKmh {
     if (durationSeconds == 0) return 0;
@@ -73,6 +85,7 @@ class MoveSession {
         'boxesObtained': boxesObtained,
         'encounters': encounters,
         'rejectedSamples': rejectedSamples,
+        'comebackGapDays': comebackGapDays,
       };
 
   factory MoveSession.fromJson(Map<String, dynamic> json) => MoveSession(
@@ -89,5 +102,6 @@ class MoveSession {
         boxesObtained: json['boxesObtained'] as int? ?? 0,
         encounters: json['encounters'] as int? ?? 0,
         rejectedSamples: json['rejectedSamples'] as int? ?? 0,
+        comebackGapDays: json['comebackGapDays'] as int? ?? 0,
       );
 }

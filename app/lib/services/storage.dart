@@ -23,6 +23,7 @@ class Storage {
   static const _keyShop = 'restep.shop';
   static const _keyProfile = 'restep.profile';
   static const _keyClub = 'restep.club';
+  static const _keyComeback = 'restep.comeback';
 
   Future<SharedPreferences> get _prefs => SharedPreferences.getInstance();
 
@@ -128,6 +129,19 @@ class Storage {
       dayKey: map['dayKey'] as String,
       sp: (map['sp'] as num).toDouble(),
     );
+  }
+
+  /// 最後にムーブした日(JST4:00境界の通し番号)。復帰ボーナスの起点。
+  Future<void> saveComeback({required int lastMoveDayIndex}) async {
+    (await _prefs).setString(_keyComeback,
+        jsonEncode({'lastMoveDayIndex': lastMoveDayIndex}));
+  }
+
+  Future<int?> loadComeback() async {
+    final raw = (await _prefs).getString(_keyComeback);
+    if (raw == null) return null;
+    final map = Map<String, dynamic>.from(jsonDecode(raw) as Map);
+    return (map['lastMoveDayIndex'] as num?)?.toInt();
   }
 
   Future<void> saveShopCatalog(List<ShopListing> catalog) async {
