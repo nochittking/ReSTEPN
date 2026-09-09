@@ -13,7 +13,8 @@ Provider + shared_preferences、完全ローカル動作・非公開が前提(�
 2. **ゲーム数値はオーナーが確定させたもの**: `game_config.dart` の定数を勝手に変えない。
    変更提案は「現在値 → 提案値 + 期待値計算」の表で提示し、承認を得てから実装する。
 3. **用語を混同しない**(過去に混同事故あり):
-   - **エンハンス** = 同レアリティ5足を合成して1段上のレアリティに挑戦(失敗でも同レア新品)
+   - **エンハンス** = 同レアリティ5足を合成。**失敗は無い**(同レア新品が生まれることも無い)。
+     確定で1段上のレアリティへ進化し、3%の大成功なら2段階アップする
    - **フュージョン** = ベース靴 + 同レア生贄1足。生贄が上回る属性のみ (現在値, 生贄値] で底上げ
 
 ## アーキテクチャ地図(`app/lib/`)
@@ -56,7 +57,7 @@ Provider + shared_preferences、完全ローカル動作・非公開が前提(�
 ```
 cd app
 /opt/flutter/bin/flutter analyze          # 0 issues
-/opt/flutter/bin/flutter test             # 全パス(現在87件)
+/opt/flutter/bin/flutter test             # 全パス(現在132件)
 /opt/flutter/bin/flutter build web --no-web-resources-cdn
 # E2Eスクショ通し(手順・罠は .claude/skills/restep-verify 参照)
 ```

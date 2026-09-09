@@ -11,7 +11,8 @@ import '../widgets/machine_art.dart';
 import '../widgets/sneaker_art.dart';
 import '../widgets/stepn_button.dart';
 
-/// フュージョン: 同レアリティ5足を合成して上位レアリティに挑戦する。
+/// エンハンス: 同レアリティ5足を合成し、確定で上位レアリティへ進化させる。
+/// 失敗は無く、3%の大成功なら2段階アップする。
 class EnhanceScreen extends StatefulWidget {
   const EnhanceScreen({super.key});
 

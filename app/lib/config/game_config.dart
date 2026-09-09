@@ -158,7 +158,7 @@ class GameConfig {
   static const double mintTwinStep = 0.04;
   static const double mintTwinCap = 0.48;
 
-  // ---- エンハンス(同レアリティ5足 → 上位レアリティ挑戦) ----
+  // ---- エンハンス(同レアリティ5足 → 確定で上位レアリティへ進化) ----
 
   static const int enhanceMaterialCount = 5;
 

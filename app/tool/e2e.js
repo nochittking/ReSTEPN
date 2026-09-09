@@ -267,7 +267,7 @@ function buildSeed() {
   await tapRole('戻る'); // フュージョン画面から詳細へ
   await page.waitForTimeout(600);
 
-  // 10. エンハンス(同レア5足→上位挑戦)
+  // 10. エンハンス(同レア5足→確定で上位レアリティへ)
   await tapRole('エンハンス', { exact: true });
   await page.waitForTimeout(1000);
   for (let i = 0; i < 5; i++) {

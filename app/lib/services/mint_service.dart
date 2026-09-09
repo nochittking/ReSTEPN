@@ -106,7 +106,7 @@ class MintService {
     return (children: children, vanished: vanished);
   }
 
-  // ---- エンハンス(同レア5足 → 上位レアリティ挑戦) ----
+  // ---- エンハンス(同レア5足 → 確定で上位レアリティへ進化) ----
 
   /// 素材の検証。問題なければnull、あれば理由を返す。
   String? enhanceBlockReason(List<Shoe> materials) {
