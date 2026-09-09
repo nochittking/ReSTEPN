@@ -151,7 +151,8 @@ class MintService {
         type: type,
         rarity: resultRarity,
         serial: _newSerial(),
-        attrs: rollAttrs(resultRarity, _rng),
+        // エンハンス産は強化帯(基礎帯の1.2倍)からロールする
+        attrs: rollAttrs(resultRarity, _rng, enhanced: true),
       ),
       great: great,
       steps: steps,
@@ -169,10 +170,11 @@ class MintService {
 
   double fusionCost(Rarity rarity) => GameConfig.fusionCostSp[rarity.index];
 
-  /// 底上げの上限値。ベース靴のレアリティ帯の上限を超えることは決して無い。
-  /// (例: ベースがレアなら、生贄がエピックでもレア帯の上限で頭打ち)
+  /// 底上げの上限値。ベース靴のレアリティが取りうる絶対上限(強化帯の上限)。
+  /// (例: ベースがレアなら上限42。生贄がエピックで43以上を持っていても
+  ///  42を超えて伸びることは決して無い)
   double fusionAttrCap(Rarity baseRarity) =>
-      GameConfig.mintAttrRange[baseRarity.index].$2;
+      GameConfig.attrCeiling(baseRarity.index);
 
   /// この生贄で到達しうる属性値。生贄値をベースのレアリティ上限で頭打ちにする。
   double _fusionTarget(Shoe base, Shoe sacrifice, ShoeAttr a) =>

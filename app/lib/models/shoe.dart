@@ -51,9 +51,13 @@ enum ShoeAttr {
   GemType get gemType => GemType.values[index];
 }
 
-/// ミント/購入時の属性ロール。レアリティ帯から各属性を独立に抽選(小数1桁)。
-Map<ShoeAttr, double> rollAttrs(Rarity rarity, Random rng) {
-  final range = GameConfig.mintAttrRange[rarity.index];
+/// 属性ロール。レアリティ帯から各属性を独立に抽選する(小数1桁)。
+/// `enhanced: true` はエンハンスで生まれた靴用で、基礎帯より高い強化帯を使う。
+Map<ShoeAttr, double> rollAttrs(Rarity rarity, Random rng,
+    {bool enhanced = false}) {
+  final range = enhanced
+      ? GameConfig.enhanceAttrRange[rarity.index]
+      : GameConfig.mintAttrRange[rarity.index];
   double roll() {
     final v = range.$1 + rng.nextDouble() * (range.$2 - range.$1);
     return (v * 10).round() / 10;

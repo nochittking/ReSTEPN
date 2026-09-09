@@ -206,6 +206,31 @@ void main() {
           .performEnhance(materials()).great, isFalse);
     });
 
+    test('強化帯は基礎帯のちょうど1.2倍(参照表 Enhance Attribute)', () {
+      for (var i = 0; i < Rarity.values.length; i++) {
+        if (i == Rarity.common.index) continue; // コモンは強化帯を持たない
+        final base = GameConfig.mintAttrRange[i];
+        final enh = GameConfig.enhanceAttrRange[i];
+        expect(enh.$1, closeTo(base.$1 * 1.2, 1e-9));
+        expect(enh.$2, closeTo(base.$2 * 1.2, 1e-9));
+      }
+      // 参照表の実値
+      expect(GameConfig.enhanceAttrRange[Rarity.rare.index], (18.0, 42.0));
+      expect(GameConfig.enhanceAttrRange[Rarity.legendary.index],
+          (60.0, 134.4));
+    });
+
+    test('エンハンス産の靴は基礎帯ではなく強化帯からロールされる', () {
+      // r=1.0: 大成功を外し(1段アップ)、属性は帯の上限まで振れる出目
+      final service = MintService(rng: _FixedRandom(1.0));
+      final result = service.performEnhance(materials()); // コモン5足→アンコモン
+      expect(result.shoe.rarity, Rarity.uncommon);
+      // アンコモンの基礎帯上限は18だが、強化帯なので21.6まで出る
+      for (final a in ShoeAttr.values) {
+        expect(result.shoe.baseAttr(a), closeTo(21.6, 1e-9));
+      }
+    });
+
     test('エピック素材はレジェンダリー止まり(2段階先が無い)', () {
       // エピックは大成功率0%。最良の出目(r=0.0)でも1段=レジェンダリー。
       final service = MintService(rng: _FixedRandom(0.0));
@@ -239,45 +264,47 @@ void main() {
           isNull);
     });
 
-    test('上限はベースのレアリティ帯の上限(生贄のレアリティでは変わらない)', () {
+    test('上限はベースのレアリティの絶対上限=強化帯の上限', () {
       final service = MintService();
-      // mintAttrRange: コモン(1,10)/アンコモン(8,18)/レア(15,28)/
-      //                エピック(25,42)/レジェンダリー(40,60)
+      // 参照表 Enhance Attribute: アンコモン21.6 / レア42 /
+      //                           エピック75.6 / レジェンダリー134.4
+      // コモンは強化帯が無いため基礎帯の上限10。
       expect(service.fusionAttrCap(Rarity.common), 10);
-      expect(service.fusionAttrCap(Rarity.rare), 28);
-      expect(service.fusionAttrCap(Rarity.epic), 42);
-      expect(service.fusionAttrCap(Rarity.legendary), 60);
+      expect(service.fusionAttrCap(Rarity.uncommon), 21.6);
+      expect(service.fusionAttrCap(Rarity.rare), 42);
+      expect(service.fusionAttrCap(Rarity.epic), 75.6);
+      expect(service.fusionAttrCap(Rarity.legendary), 134.4);
     });
 
-    test('ベース=レア×生贄=エピック: レア帯の上限28で頭打ちになる', () {
+    test('ベース=レア×生贄=エピック: レアの上限42で頭打ちになる', () {
       // rng最大値(1.0)= 到達しうる上限まで伸ばす出目
       final service = MintService(rng: _FixedRandom(1.0));
       final base = withAttrs('b', {
         ShoeAttr.efficiency: 20.0,
         ShoeAttr.luck: 20.0,
       }, rarity: Rarity.rare);
-      // 生贄はエピックで、レア帯の上限28を大きく超える値を持つ
+      // 生贄はエピックで、レアの上限42を超える値(43以上)を持つ
       final sacrifice = withAttrs('s', {
-        ShoeAttr.efficiency: 41.5,
-        ShoeAttr.luck: 26.0, // 上限未満なのでこの値まで伸びる
+        ShoeAttr.efficiency: 55.0,
+        ShoeAttr.luck: 39.0, // 上限未満なのでこの値まで伸びる
       }, rarity: Rarity.epic);
 
       service.performFusion(base, sacrifice);
-      // 41.5 ではなく、レアの上限 28 で止まる
-      expect(base.baseAttr(ShoeAttr.efficiency), closeTo(28.0, 1e-9));
+      // 55.0 ではなく、レアの上限 42 で止まる
+      expect(base.baseAttr(ShoeAttr.efficiency), closeTo(42.0, 1e-9));
       // 上限未満の属性は生贄値まで伸びる
-      expect(base.baseAttr(ShoeAttr.luck), closeTo(26.0, 1e-9));
+      expect(base.baseAttr(ShoeAttr.luck), closeTo(39.0, 1e-9));
     });
 
     test('ベースのレアリティ上限を既に超えている属性は伸びない', () {
       final service = MintService(rng: _FixedRandom(1.0));
-      // 振り分けでレア帯の上限28を超えて育てた靴
-      final base = withAttrs('b', {ShoeAttr.efficiency: 30.0},
+      // 振り分けでレアの上限42を超えて育てた靴
+      final base = withAttrs('b', {ShoeAttr.efficiency: 45.0},
           rarity: Rarity.rare);
-      final sacrifice = withAttrs('s', {ShoeAttr.efficiency: 41.5},
+      final sacrifice = withAttrs('s', {ShoeAttr.efficiency: 55.0},
           rarity: Rarity.epic);
       final gains = service.performFusion(base, sacrifice);
-      expect(base.baseAttr(ShoeAttr.efficiency), 30.0);
+      expect(base.baseAttr(ShoeAttr.efficiency), 45.0);
       expect(gains.containsKey(ShoeAttr.efficiency), isFalse);
     });
 
@@ -285,10 +312,10 @@ void main() {
       final service = MintService();
       final base = withAttrs('b', {ShoeAttr.efficiency: 20.0},
           rarity: Rarity.rare);
-      final sacrifice = withAttrs('s', {ShoeAttr.efficiency: 41.5},
+      final sacrifice = withAttrs('s', {ShoeAttr.efficiency: 55.0},
           rarity: Rarity.epic);
       final preview = service.fusionPreview(base, sacrifice);
-      expect(preview[ShoeAttr.efficiency]!.max, 28);
+      expect(preview[ShoeAttr.efficiency]!.max, 42);
     });
 
     test('生贄が上回る属性だけ範囲内で底上げ(rng最大値→生贄値まで)', () {
