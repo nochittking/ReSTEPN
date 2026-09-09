@@ -124,10 +124,11 @@ class S {
   // フュージョン(ベース+生贄1足で属性底上げ)
   static const fusionTitle = 'フュージョン';
   static const fusionButton = 'フュージョン';
-  static const fusionNote = '生贄の値がベースを上回る属性を、範囲内でランダムに底上げします';
+  static const fusionNote = '生贄の値がベースを上回る属性を、範囲内でランダムに底上げします。'
+      'ベースのレアリティ帯の上限は超えません';
   static const fusionBase = 'ベース(強化される靴)';
   static const fusionSacrifice = '生贄の靴を選択';
-  static const fusionMatching = '同レアリティの靴';
+  static const fusionMatching = '生贄にできる靴(レアリティ不問)';
   static const fusionDone = 'フュージョン完了!属性が底上げされた';
   static const fusionNoGain = '底上げできる属性がありませんでした';
   static const baseAttributes = 'ベース属性';

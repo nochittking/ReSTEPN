@@ -255,8 +255,9 @@ function buildSeed() {
   await page.waitForTimeout(1000);
   await tapText('生贄の靴を選択');
   await page.waitForTimeout(800);
-  // Lv6のウォーカー(ベースLv5より属性が高い)を生贄に=底上げが発生する
-  await tapRole('生贄 コモン ウォーカー', { nth: 1 });
+  // 生贄は上位レアリティでもよい(レアリティ不問)。ベースがコモンなので
+  // 底上げはコモン帯の上限で頭打ちになる=新仕様の確認を兼ねる。
+  await tapRole('生贄 エピック ランナー');
   await page.waitForTimeout(800);
   await shot('19-fusion-preview'); // 属性表(底上げ範囲は緑)
   await tapRoleLast('フュージョン', { exact: true });

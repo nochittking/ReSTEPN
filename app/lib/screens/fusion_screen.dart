@@ -8,8 +8,9 @@ import '../theme/restep_theme.dart';
 import '../widgets/sneaker_art.dart';
 import '../widgets/stepn_button.dart';
 
-/// フュージョン: ベース靴 + 生贄1足(同レア)で、生贄が上回る属性を
-/// 「現在値〜生贄値」の範囲でランダム底上げする。生贄は消費される。
+/// フュージョン: ベース靴 + 生贄1足(レアリティ不問)で、生贄が上回る属性を
+/// 「現在値〜到達上限」の範囲でランダム底上げする。到達上限はベースの
+/// レアリティ帯の上限で頭打ちになる。生贄は消費される。
 class FusionScreen extends StatefulWidget {
   const FusionScreen({super.key, required this.baseId});
 
@@ -277,7 +278,7 @@ class _FusionScreenState extends State<FusionScreen> {
 
   void _pickSacrifice(AppState state, Shoe base) {
     final candidates = state.inventory.shoes
-        .where((s) => s.id != base.id && s.rarity == base.rarity)
+        .where((s) => s.id != base.id)
         .toList();
     showModalBottomSheet<void>(
       context: context,

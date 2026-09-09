@@ -136,7 +136,7 @@ class MintService {
           : 0.0;
 
   /// エンハンス実行。素材5足は呼び出し側で削除する。
-  /// 成功なら1段上、失敗でも同レアリティの新しい靴が必ず返る。属性はランダム。
+  /// 失敗は無く、必ず1段上(大成功なら2段階上)の靴が返る。属性はランダム。
   ({Shoe shoe, bool great, int steps}) performEnhance(List<Shoe> materials) {
     assert(enhanceBlockReason(materials) == null);
     final rarity = materials.first.rarity;
@@ -160,30 +160,39 @@ class MintService {
 
   // ---- フュージョン(ベース+生贄1足で属性を底上げ) ----
 
+  /// 生贄はレアリティ不問(ベースより上位の靴も使える)。
   String? fusionBlockReason(Shoe base, Shoe? sacrifice) {
     if (sacrifice == null) return '生贄の靴を選択してください';
     if (sacrifice.id == base.id) return 'ベースと別の靴を選んでください';
-    if (sacrifice.rarity != base.rarity) return '同レアリティの靴が必要です';
     return null;
   }
 
   double fusionCost(Rarity rarity) => GameConfig.fusionCostSp[rarity.index];
 
-  /// 属性ごとのプレビュー: current と、生贄が上回る場合の上限 max(なければnull)。
+  /// 底上げの上限値。ベース靴のレアリティ帯の上限を超えることは決して無い。
+  /// (例: ベースがレアなら、生贄がエピックでもレア帯の上限で頭打ち)
+  double fusionAttrCap(Rarity baseRarity) =>
+      GameConfig.mintAttrRange[baseRarity.index].$2;
+
+  /// この生贄で到達しうる属性値。生贄値をベースのレアリティ上限で頭打ちにする。
+  double _fusionTarget(Shoe base, Shoe sacrifice, ShoeAttr a) =>
+      min(sacrifice.baseAttr(a), fusionAttrCap(base.rarity));
+
+  /// 属性ごとのプレビュー: current と、到達しうる上限 max(上がらないならnull)。
   Map<ShoeAttr, ({double current, double? max})> fusionPreview(
       Shoe base, Shoe sacrifice) {
-    return {
-      for (final a in ShoeAttr.values)
-        a: (
-          current: base.baseAttr(a),
-          max: sacrifice.baseAttr(a) > base.baseAttr(a)
-              ? sacrifice.baseAttr(a)
-              : null,
-        ),
-    };
+    final preview = <ShoeAttr, ({double current, double? max})>{};
+    for (final a in ShoeAttr.values) {
+      final cur = base.baseAttr(a);
+      final target = _fusionTarget(base, sacrifice, a);
+      preview[a] = (current: cur, max: target > cur ? target : null);
+    }
+    return preview;
   }
 
-  /// フュージョン実行。生贄が上回る属性を「現在値〜生贄値」の範囲でランダム底上げ。
+  /// フュージョン実行。生贄が上回る属性を「現在値〜到達上限」の範囲でランダム底上げ。
+  /// 到達上限はベースのレアリティ帯の上限で頭打ちになるため、上位レアリティの
+  /// 生贄を使ってもベースの帯を超えて伸びることは無い。
   /// ベース靴を直接更新する。生贄の消費は呼び出し側で行う。
   /// 実際に上がった属性→上げ幅を返す。
   Map<ShoeAttr, double> performFusion(Shoe base, Shoe sacrifice) {
@@ -191,9 +200,9 @@ class MintService {
     final gains = <ShoeAttr, double>{};
     for (final a in ShoeAttr.values) {
       final cur = base.baseAttr(a);
-      final sac = sacrifice.baseAttr(a);
-      if (sac > cur) {
-        final boosted = _round1(cur + _rng.nextDouble() * (sac - cur));
+      final target = _fusionTarget(base, sacrifice, a);
+      if (target > cur) {
+        final boosted = _round1(cur + _rng.nextDouble() * (target - cur));
         if (boosted > cur) {
           gains[a] = _round1(boosted - cur);
           base.attrs[a] = boosted;
