@@ -32,6 +32,9 @@ class S {
   static const outOfRange = 'レンジ外(獲得停止中)';
   static const energyEmpty = 'エナジー切れ';
   static const dailyCapReached = 'デイリー上限到達';
+  static const dailySp = 'デイリーSP';
+  static const dailyCapUnlock = '上限を3000に解放';
+  static const dailyCapUnlocked = 'デイリー上限を3000に解放しました!';
   static const gpsWaiting = 'GPS待機中…';
   static const simSpeed = 'シミュレーション速度';
 

@@ -104,14 +104,20 @@ class Shoe {
   double baseAttr(ShoeAttr attr) => attrs[attr] ?? 0;
 
   /// ジェム補正込みの属性値。equippedGems はこのシューズに装着中のジェム。
+  /// ソケット倍率(靴のレアリティで決まる)。装着ジェムの効き目にかかる。
+  double get socketMultiplier =>
+      GameConfig.socketMultiplier[rarity.index];
+
   double totalAttr(ShoeAttr attr, List<Gem> equippedGems) {
     final base = baseAttr(attr);
+    final mult = socketMultiplier;
     var flat = 0.0;
     var percent = 0.0;
     for (final gem in equippedGems) {
       if (gem.type == attr.gemType) {
-        flat += gem.flatBonus;
-        percent += gem.percentBonus;
+        // ソケット倍率は固定値・割合の両方にかかる
+        flat += gem.flatBonus * mult;
+        percent += gem.percentBonus * mult;
       }
     }
     return (base + flat) * (1 + percent / 100);

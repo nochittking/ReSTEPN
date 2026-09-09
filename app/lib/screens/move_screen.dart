@@ -124,13 +124,13 @@ class MoveScreen extends StatelessWidget {
                             icon: Icons.directions_walk,
                             iconColor: RS.grey,
                             label: isSp
-                                ? '${state.dailyEarnedSp.toStringAsFixed(2)}/${GameConfig.dailySpCap.toStringAsFixed(2)}'
+                                ? '${state.dailyEarnedSp.toStringAsFixed(2)}/${state.dailySpCap.toStringAsFixed(2)}'
                                 : '${engine.earnedPoints.toStringAsFixed(2)} GP',
                             delta:
                                 '+${engine.earnedPoints.toStringAsFixed(2)}',
                             deltaColor: RS.orange,
                             progress: isSp
-                                ? state.dailyEarnedSp / GameConfig.dailySpCap
+                                ? state.dailyEarnedSp / state.dailySpCap
                                 : 1.0,
                             fillColor: RS.orange,
                           ),

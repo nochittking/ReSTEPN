@@ -23,6 +23,7 @@ class Storage {
   static const _keyShop = 'restep.shop';
   static const _keyProfile = 'restep.profile';
   static const _keyClub = 'restep.club';
+  static const _keyDailyCap = 'restep.dailyCap';
 
   Future<SharedPreferences> get _prefs => SharedPreferences.getInstance();
 
@@ -157,6 +158,19 @@ class Storage {
       name: map['name'] as String? ?? 'RUNNER',
       totalKm: (map['totalKm'] as num?)?.toDouble() ?? 0.0,
     );
+  }
+
+  /// デイリーSP上限の解放フラグ(GPでの買い切り)。
+  Future<void> saveDailyCapUnlocked(bool unlocked) async {
+    (await _prefs)
+        .setString(_keyDailyCap, jsonEncode({'unlocked': unlocked}));
+  }
+
+  Future<bool> loadDailyCapUnlocked() async {
+    final raw = (await _prefs).getString(_keyDailyCap);
+    if (raw == null) return false;
+    final map = Map<String, dynamic>.from(jsonDecode(raw) as Map);
+    return map['unlocked'] as bool? ?? false;
   }
 
   /// クラブ対抗戦の所属と今週の貢献km。未加入なら保存しない。

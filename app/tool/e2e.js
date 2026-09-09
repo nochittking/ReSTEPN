@@ -25,7 +25,7 @@ function buildSeed() {
   const weekKey = `${weekStart.getUTCFullYear()}-${weekStart.getUTCMonth() + 1}-${weekStart.getUTCDate()}`;
 
   const data = {
-    'restep.balances': { sp: 4921.31, gp: 1578.89 },
+    'restep.balances': { sp: 4921.31, gp: 1578.89 }, // GP>=500=上限解放ボタンが押せる
     'restep.inventory': [
       { id: 'shoe-initial', type: 'walker', rarity: 'common', level: 5, durability: 95.0, mintCount: 0, serial: 778894978 },
       { id: 'shoe-2', type: 'jogger', rarity: 'rare', level: 12, durability: 88.5, mintCount: 2, serial: 311458571 },
@@ -43,6 +43,8 @@ function buildSeed() {
       { id: 'gem-e3', type: 'efficiency', level: 1, equippedShoeId: null },
       { id: 'gem-e4', type: 'efficiency', level: 1, equippedShoeId: null },
       { id: 'gem-e5', type: 'efficiency', level: 2, equippedShoeId: 'shoe-4' },
+      // Lv9(最大)の効率ジェム=再スケール後の上限を画面で確認する
+      { id: 'gem-e9', type: 'efficiency', level: 9, equippedShoeId: null },
       { id: 'gem-l1', type: 'luck', level: 1, equippedShoeId: null },
       { id: 'gem-l2', type: 'luck', level: 1, equippedShoeId: null },
       { id: 'gem-l3', type: 'luck', level: 1, equippedShoeId: null },

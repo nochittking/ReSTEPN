@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
+import '../config/game_config.dart';
 import '../l10n/strings_ja.dart';
 import '../models/gem.dart';
 import '../models/move_session.dart';
@@ -152,11 +153,18 @@ class _HomeScreenState extends State<HomeScreen> {
                 ProgressPill(
                   leading: const Icon(Icons.directions_walk, size: 20),
                   text:
-                      '${state.dailyEarnedSp.toStringAsFixed(2)}/${'1000'}',
-                  trailing: 'デイリーSP',
-                  progress: state.dailyEarnedSp / 1000,
+                      '${state.dailyEarnedSp.toStringAsFixed(2)}/${state.dailySpCap.toStringAsFixed(0)}',
+                  trailing: S.dailySp,
+                  progress: state.dailySpCap == 0
+                      ? 0
+                      : state.dailyEarnedSp / state.dailySpCap,
                   fillColor: RS.orange,
                 ),
+                // 上限解放(GP買い切り)。解放済みなら出さない。
+                if (!state.dailyCapUnlocked) ...[
+                  const SizedBox(height: 8),
+                  _DailyCapUnlock(state: state),
+                ],
                 const SizedBox(height: 12),
 
                 // エナジーピル
@@ -509,6 +517,52 @@ class _GemRevealDialog extends StatelessWidget {
               fontSize: 16,
               width: 160,
               onTap: () => Navigator.of(context).pop(),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// デイリーSP上限をGPで解放するボタン(買い切り・解放後は非表示)。
+class _DailyCapUnlock extends StatelessWidget {
+  const _DailyCapUnlock({required this.state});
+
+  final AppState state;
+
+  @override
+  Widget build(BuildContext context) {
+    final canPay = state.gpBalance >= GameConfig.dailyCapUnlockGp;
+    return GestureDetector(
+      onTap: canPay
+          ? () async {
+              final ok = await state.unlockDailyCap();
+              if (ok && context.mounted) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(content: Text(S.dailyCapUnlocked)),
+                );
+              }
+            }
+          : null,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+        decoration: BoxDecoration(
+          color: canPay ? RS.white : RS.white.withValues(alpha: 0.5),
+          borderRadius: BorderRadius.circular(999),
+          border: Border.all(
+              color: canPay ? RS.ink : RS.grey, width: 1.6),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(Icons.lock_open,
+                size: 15, color: canPay ? RS.purpleDeep : RS.grey),
+            const SizedBox(width: 6),
+            Text(
+              '${S.dailyCapUnlock} ${GameConfig.dailyCapUnlockGp.toStringAsFixed(0)} GP',
+              style: RS.label(
+                  size: 12, color: canPay ? RS.ink : RS.grey),
             ),
           ],
         ),

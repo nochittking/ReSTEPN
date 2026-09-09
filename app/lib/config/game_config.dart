@@ -29,15 +29,32 @@ class GameConfig {
 
   // ---- ポイント獲得 ----
 
-  /// ポイント獲得の基礎レート(適正速度レンジ内・1分あたり)
-  static const double spPerMinuteBase = 1.0; // SP(ステップポイント)
-  static const double gpPerMinuteBase = 0.5; // GP(ガバナンスポイント)
+  /// 獲得は実効効率値(E_eff)で決まる。
+  ///   SP/分 = E_eff ÷ efficiencyDivisorSp
+  ///   GP/分 = E_eff ÷ efficiencyDivisorGp
+  /// E_eff は efficiencyCap で頭打ち。上限構成(レジェンダリー靴のEソケット×1.5
+  /// + Lv9効率ジェム)で上限に到達する。
+  /// 上限時: 300 ÷ 10 = 30 SP/分。20エナジー=100分ぶんで 3000 SP/日。
+  static const double efficiencyCap = 300.0;
+  static const double efficiencyDivisorSp = 10.0;
+  static const double efficiencyDivisorGp = 20.0;
 
-  /// SP/分 = 基礎レート × (1 + 効率値/100)
-  /// 効率値 = レアリティ基礎値 + レベル成長 + ジェム補正
+  /// ジェムソケットの効き目倍率(靴のレアリティ別)。
+  /// 装着ジェムの固定値・割合の両方にかかる。
+  static const List<double> socketMultiplier = [
+    1.0, // コモン
+    1.1, // アンコモン
+    1.2, // レア
+    1.35, // エピック
+    1.5, // レジェンダリー
+  ];
 
-  /// デイリーSP獲得上限(JST 4:00リセット)
+  /// デイリーSP獲得上限(JST 4:00リセット)。GPで解放すると上限が上がる。
   static const double dailySpCap = 1000.0;
+  static const double dailySpCapUnlocked = 3000.0;
+
+  /// デイリー上限解放の費用(GP・買い切り)
+  static const double dailyCapUnlockGp = 500.0;
 
   /// デイリーリセット時刻(JST)
   static const int dailyResetHourJst = 4;
@@ -127,20 +144,23 @@ class GameConfig {
 
   // ---- ジェム ----
 
-  /// 固定値ボーナス(Lv1〜5)
-  static const List<double> gemFlatBonus = [2, 8, 25, 72, 200];
+  /// 固定値ボーナス(Lv1〜9)。Lv9=100。
+  static const List<double> gemFlatBonus = [1, 3, 6, 11, 19, 31, 48, 70, 100];
 
-  /// 割合ボーナス: Lv×5%
-  static const double gemPercentPerLevel = 5.0;
+  /// 割合ボーナス(Lv1〜9・%)。Lv9=40%。
+  /// Lv9の強度 = 固定値100 + 割合40 = 140。
+  static const List<double> gemPercentBonus = [4, 8, 12, 16, 20, 25, 30, 35, 40];
 
-  /// 強化: 同種同Lv3個 → Lv+1を1個。成功率(Lv1→2から順)
-  static const List<double> gemUpgradeSuccessRate = [0.55, 0.50, 0.45, 0.40];
+  /// 強化: 同種同Lv3個 → Lv+1を1個。成功率(Lv1→2から順・Lv8→9まで)
+  static const List<double> gemUpgradeSuccessRate = [
+    0.55, 0.50, 0.45, 0.40, 0.35, 0.30, 0.25, 0.20,
+  ];
 
   /// 強化費用: SP 100×Lv
   static double gemUpgradeCost(int level) => 100.0 * level;
 
   /// 最大ジェムレベル
-  static const int maxGemLevel = 5;
+  static const int maxGemLevel = 9;
 
   // ---- ミステリーボックス ----
 

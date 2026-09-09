@@ -11,7 +11,7 @@ import 'package:restep_mvp/services/reward_engine.dart';
 /// 1秒刻みのムーブセッションをシミュレーションで通し、
 /// エナジー消費・距離・ポイント・耐久の整合を検証するロジック統合テスト。
 void main() {
-  test('10分のウォーキングでエナジー2.0を使い切り、約10.1SPを獲得する', () {
+  test('10分のウォーキングでエナジー2.0を使い切り、約1.0SPを獲得する', () {
     // 1足(コモン・ウォーカー)= エナジー上限2.0 = ムーブ10分ぶん
     final inventory = ShoeInventory([
       Shoe(id: 's1', type: ShoeType.walker, rarity: Rarity.common),
@@ -54,8 +54,8 @@ void main() {
     expect(energy.isEmpty, isTrue);
 
     // ポイントはエナジーが残っていた600秒ぶんのみ
-    // (SP 1.0×(1+効率1.0/100)=1.01/分 × 10分 ≒ 10.1)
-    expect(engine.earnedPoints, closeTo(10.1, 0.15));
+    // (SP/分 = E_eff÷10 = 1.0÷10 = 0.1/分 × 10分 ≒ 1.0)
+    expect(engine.earnedPoints, closeTo(1.0, 0.02));
 
     // 距離は720秒×1.25m/s = 900m(エナジー切れ後も計測は継続)
     expect(engine.distanceMeters, closeTo(900.0, 5.0));

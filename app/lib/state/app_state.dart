@@ -72,6 +72,26 @@ class AppState extends ChangeNotifier {
   String _dailyKey = '';
   double dailyEarnedSp = 0;
 
+  /// GPでデイリーSP上限を解放済みか(買い切り)。
+  bool dailyCapUnlocked = false;
+
+  /// 現在のデイリーSP上限。解放済みなら3000、未解放は1000。
+  double get dailySpCap => dailyCapUnlocked
+      ? GameConfig.dailySpCapUnlocked
+      : GameConfig.dailySpCap;
+
+  /// デイリー上限をGPで解放する。残高不足・解放済みなら false。
+  Future<bool> unlockDailyCap() async {
+    if (dailyCapUnlocked) return false;
+    if (gpBalance < GameConfig.dailyCapUnlockGp) return false;
+    gpBalance -= GameConfig.dailyCapUnlockGp;
+    dailyCapUnlocked = true;
+    await _storage.saveDailyCapUnlocked(true);
+    await _storage.saveBalances(sp: spBalance, gp: gpBalance);
+    notifyListeners();
+    return true;
+  }
+
   // ---- クラブ対抗戦 ----
 
   /// 所属クラブID(null = 未加入)。
@@ -114,8 +134,7 @@ class AppState extends ChangeNotifier {
 
   Shoe? get selectedShoe => inventory.byId(selectedShoeId);
 
-  double get dailyRemainingSp =>
-      max(0, GameConfig.dailySpCap - dailyEarnedSp);
+  double get dailyRemainingSp => max(0, dailySpCap - dailyEarnedSp);
 
   /// シューズに装着中のジェム一覧。
   List<Gem> equippedGems(String shoeId) =>
@@ -303,6 +322,7 @@ class AppState extends ChangeNotifier {
     userName = profile.name;
     totalKm = profile.totalKm;
 
+    dailyCapUnlocked = await _storage.loadDailyCapUnlocked();
     final daily = await _storage.loadDaily();
     _dailyKey = daily?.dayKey ?? '';
     dailyEarnedSp = daily?.sp ?? 0;

@@ -50,25 +50,25 @@ void main() {
     });
   });
 
-  group('ポイント付与(SP/分 = 基礎 × (1+効率/100))', () {
-    test('コモンLv0(効率1.0)のSPレートは1分1.01', () {
+  group('ポイント付与(SP/分 = E_eff ÷ 10、GP/分 = E_eff ÷ 20)', () {
+    test('コモンLv0(効率1.0)のSPレートは1分0.1', () {
       final engine = RewardEngine(shoe: _walker(), mode: EarnMode.sp);
       for (final s in samplesAtSpeed(4.5, 5)) {
         engine.processSample(s);
       }
       final earned = engine.tick(60, energyAvailable: true);
-      expect(earned, closeTo(1.01, 1e-9));
+      expect(earned, closeTo(0.1, 1e-9));
     });
 
-    test('GPモードは半分のレート', () {
+    test('GPモードは半分のレート(÷20)', () {
       final engine = RewardEngine(shoe: _walker(), mode: EarnMode.gp);
       for (final s in samplesAtSpeed(4.5, 5)) {
         engine.processSample(s);
       }
-      expect(engine.tick(60, energyAvailable: true), closeTo(0.505, 1e-9));
+      expect(engine.tick(60, energyAvailable: true), closeTo(0.05, 1e-9));
     });
 
-    test('効率45の靴はレートが1.45倍', () {
+    test('効率45の靴は4.5SP/分(45÷10)', () {
       final shoe = Shoe(
         id: 's1',
         type: ShoeType.walker,
@@ -79,7 +79,7 @@ void main() {
       for (final s in samplesAtSpeed(4.5, 5)) {
         engine.processSample(s);
       }
-      expect(engine.tick(60, energyAvailable: true), closeTo(1.45, 1e-9));
+      expect(engine.tick(60, energyAvailable: true), closeTo(4.5, 1e-9));
     });
 
     test('効率ジェム装着でレートが上がる', () {
@@ -89,8 +89,9 @@ void main() {
       for (final s in samplesAtSpeed(4.5, 5)) {
         engine.processSample(s);
       }
-      // 効率 = (1.0+2.0)×1.05 = 3.15 → レート1.0315
-      expect(engine.tick(60, energyAvailable: true), closeTo(1.0315, 1e-9));
+      // コモンのソケット倍率は1.0。Lv1ジェムは固定+1/割合4%。
+      // 効率 = (1.0 + 1.0) × 1.04 = 2.08 → レート 0.208
+      expect(engine.tick(60, energyAvailable: true), closeTo(0.208, 1e-9));
     });
 
     test('レンジ外では付与されない', () {
@@ -114,9 +115,10 @@ void main() {
       for (final s in samplesAtSpeed(4.5, 5)) {
         engine.processSample(s);
       }
+      // レートは0.1/分なので、残量0.05のほうが先に尽きる
       final earned =
-          engine.tick(60, energyAvailable: true, dailyRemaining: 0.5);
-      expect(earned, closeTo(0.5, 1e-9));
+          engine.tick(60, energyAvailable: true, dailyRemaining: 0.05);
+      expect(earned, closeTo(0.05, 1e-9));
       expect(
           engine.tick(60, energyAvailable: true, dailyRemaining: 0), 0);
     });
@@ -129,7 +131,7 @@ void main() {
       for (final s in samplesAtSpeed(4.5, 5)) {
         engine.processSample(s);
       }
-      expect(engine.tick(60, energyAvailable: true), closeTo(0.505, 1e-9));
+      expect(engine.tick(60, energyAvailable: true), closeTo(0.05, 1e-9));
     });
 
     test('耐久消費は回復値で緩和される(コモンLv0: 0.995倍)', () {
@@ -142,8 +144,9 @@ void main() {
       final gem = Gem(id: 'g1', type: GemType.resilience, level: 3);
       final engine = RewardEngine(
           shoe: _walker(), mode: EarnMode.sp, equippedGems: [gem]);
-      // 回復 = (1+25)×1.15 = 29.9 → 係数 1-29.9/200 = 0.8505
-      expect(engine.durabilityDecay(60), closeTo(0.3 * 0.8505, 1e-6));
+      // コモンのソケット倍率1.0。Lv3ジェムは固定+6/割合12%。
+      // 回復 = (1 + 6) × 1.12 = 7.84 → 係数 1 - 7.84/200 = 0.9608
+      expect(engine.durabilityDecay(60), closeTo(0.3 * 0.9608, 1e-6));
     });
   });
 

@@ -13,7 +13,8 @@ import 'location_provider.dart';
 /// - 距離/速度の更新はサンプル駆動([processSample])
 /// - ポイント付与とエナジー消費の時間積算はタイマー駆動([tick])
 ///
-/// 獲得レート: 基礎レート × (1 + 効率値/100)。
+/// 獲得レート: 実効効率値(E_eff)÷ モード別の除数。
+/// E_eff は efficiencyCap(300)で頭打ち。SPは÷10、GPは÷20。
 /// 耐久度が閾値未満のときは半減ペナルティ。
 class RewardEngine {
   RewardEngine({
@@ -40,16 +41,21 @@ class RewardEngine {
 
   bool get inRange => shoe.type.inRange(currentSpeedKmh);
 
-  /// 効率値(ジェム補正込み)
+  /// 効率値(ジェム補正・ソケット倍率込み・上限適用前)
   double get efficiency => shoe.totalAttr(ShoeAttr.efficiency, _gems);
 
+  /// 実効効率値 E_eff。効率値を上限(300)で頭打ちにしたもの。
+  double get effectiveEfficiency =>
+      min(efficiency, GameConfig.efficiencyCap);
+
   /// 現在の獲得レート(ポイント/分)。耐久度ペナルティ込み。
+  /// SP/分 = E_eff ÷ 10、GP/分 = E_eff ÷ 20。
   double get pointsPerMinute {
-    final base = switch (mode) {
-      EarnMode.sp => GameConfig.spPerMinuteBase,
-      EarnMode.gp => GameConfig.gpPerMinuteBase,
+    final divisor = switch (mode) {
+      EarnMode.sp => GameConfig.efficiencyDivisorSp,
+      EarnMode.gp => GameConfig.efficiencyDivisorGp,
     };
-    var rate = base * (1 + efficiency / 100);
+    var rate = effectiveEfficiency / divisor;
     if (shoe.durability < GameConfig.durabilityPenaltyThreshold) {
       rate *= GameConfig.durabilityPenaltyFactor;
     }

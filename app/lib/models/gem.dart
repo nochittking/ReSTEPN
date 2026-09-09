@@ -31,11 +31,14 @@ class Gem {
   /// 装着先シューズID(未装着はnull)
   String? equippedShoeId;
 
-  /// 固定値ボーナス: Lv1=+2, Lv2=+8, Lv3=+25, Lv4=+72, Lv5=+200
+  /// 固定値ボーナス(Lv1〜9)。Lv9=+100。
   double get flatBonus => GameConfig.gemFlatBonus[level - 1];
 
-  /// 割合ボーナス: Lv×5%
-  double get percentBonus => level * GameConfig.gemPercentPerLevel;
+  /// 割合ボーナス(Lv1〜9・%)。Lv9=40%。
+  double get percentBonus => GameConfig.gemPercentBonus[level - 1];
+
+  /// 強度(固定値+割合)。Lv9なら100+40=140。ジェムの格を1つの数で示す。
+  double get intensity => flatBonus + percentBonus;
 
   String get displayName => '${type.label}ジェム Lv.$level';
 
