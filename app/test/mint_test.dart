@@ -172,8 +172,8 @@ void main() {
           service.enhanceCost(Rarity.uncommon), (sp: 1360.0, gp: 240.0));
     });
 
-    test('失敗は無い: 出目が最悪でも必ず1段上へ進化する', () {
-      // r=0.99 は大成功を外す出目。それでもレアリティは必ず上がる。
+    test('失敗は無い: 出目が最悪でも必ず1段アップする', () {
+      // r=0.99 は大成功(3%)を外す出目。それでもレアリティは必ず上がる。
       final service = MintService(rng: _FixedRandom(0.99));
       final result = service.performEnhance(materials());
       expect(result.great, isFalse);
@@ -181,7 +181,7 @@ void main() {
       expect(result.shoe.rarity, Rarity.uncommon);
     });
 
-    test('大成功(r=0.0)は2段階アップ', () {
+    test('大成功(r=0.0 < 3%)は2段階アップ', () {
       final service = MintService(rng: _FixedRandom(0.0));
       final result = service.performEnhance(materials());
       expect(result.great, isTrue);
@@ -190,16 +190,24 @@ void main() {
       expect(result.shoe.rarity, Rarity.rare);
     });
 
-    test('大成功率は素材レアリティ別・エピックは上限のため0%', () {
+    test('大成功率は一律3%(=通常成功97%)・エピックのみ上限で0%', () {
       final service = MintService();
-      expect(service.enhanceGreatChance(Rarity.common), 0.10);
-      expect(service.enhanceGreatChance(Rarity.uncommon), 0.08);
-      expect(service.enhanceGreatChance(Rarity.rare), 0.05);
+      expect(service.enhanceGreatChance(Rarity.common), 0.03);
+      expect(service.enhanceGreatChance(Rarity.uncommon), 0.03);
+      expect(service.enhanceGreatChance(Rarity.rare), 0.03);
+      // エピック+2段はレジェンダリーの先が無いので起こり得ない
       expect(service.enhanceGreatChance(Rarity.epic), 0.0);
     });
 
+    test('大成功の境界: r=0.029で大成功・r=0.03は通常成功', () {
+      expect(MintService(rng: _FixedRandom(0.029))
+          .performEnhance(materials()).great, isTrue);
+      expect(MintService(rng: _FixedRandom(0.03))
+          .performEnhance(materials()).great, isFalse);
+    });
+
     test('エピック素材はレジェンダリー止まり(2段階先が無い)', () {
-      // エピックは大成功率0%。最良の出目(r=0.0)でも1段=レジェンダリーで頭打ち。
+      // エピックは大成功率0%。最良の出目(r=0.0)でも1段=レジェンダリー。
       final service = MintService(rng: _FixedRandom(0.0));
       final result = service.performEnhance(materials(Rarity.epic));
       expect(result.shoe.rarity, Rarity.legendary);

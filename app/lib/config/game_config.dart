@@ -166,10 +166,9 @@ class GameConfig {
   static const List<double> enhanceCostSp = [360, 1360, 4000, 12000];
   static const List<double> enhanceCostGp = [40, 240, 800, 2400];
 
-  /// エンハンスに失敗は無い。必ず成功して最低でも1段上のレアリティへ進化する。
-  /// この確率で「大成功」となり、2段階アップする(素材レアリティ別)。
-  /// エピック素材はレジェンダリーが上限で2段階先が存在しないため0固定。
-  static const List<double> enhanceGreatChance = [0.10, 0.08, 0.05, 0.0];
+  /// エンハンスに失敗は無い。必ず成功して上位クラスの靴へ進化する。
+  /// 通常は1段アップ(97%)、この確率で「大成功」となり2段階アップする(3%)。
+  static const double enhanceGreatChance = 0.03;
 
   // ---- 売却 ----
 

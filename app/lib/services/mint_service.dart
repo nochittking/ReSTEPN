@@ -128,22 +128,22 @@ class MintService {
         gp: GameConfig.enhanceCostGp[rarity.index],
       );
 
-  /// 大成功(2段階アップ)の確率。エピック素材は上限に当たるため0。
+  /// 大成功(2段階アップ)の確率。通常成功(1段アップ)はこの残り。
+  /// エピック素材はレジェンダリーの先が無く2段階アップが起こり得ないため0。
   double enhanceGreatChance(Rarity rarity) =>
-      GameConfig.enhanceGreatChance[rarity.index];
+      rarity.index + 2 <= Rarity.legendary.index
+          ? GameConfig.enhanceGreatChance
+          : 0.0;
 
   /// エンハンス実行。素材5足は呼び出し側で削除する。
   /// 成功なら1段上、失敗でも同レアリティの新しい靴が必ず返る。属性はランダム。
   ({Shoe shoe, bool great, int steps}) performEnhance(List<Shoe> materials) {
     assert(enhanceBlockReason(materials) == null);
     final rarity = materials.first.rarity;
-    // 失敗は無い。必ず1段上へ進化し、大成功なら2段階上がる。
+    // 失敗は無い。必ず1段アップし、大成功なら2段階アップする。
     final great = _rng.nextDouble() < enhanceGreatChance(rarity);
     final steps = great ? 2 : 1;
-    // レジェンダリーより上は存在しないので頭打ちにする
-    final resultIndex =
-        min(rarity.index + steps, Rarity.legendary.index);
-    final resultRarity = Rarity.values[resultIndex];
+    final resultRarity = Rarity.values[rarity.index + steps];
     final type = materials[_rng.nextInt(materials.length)].type;
     return (
       shoe: Shoe(
@@ -154,7 +154,7 @@ class MintService {
         attrs: rollAttrs(resultRarity, _rng),
       ),
       great: great,
-      steps: resultIndex - rarity.index,
+      steps: steps,
     );
   }
 
