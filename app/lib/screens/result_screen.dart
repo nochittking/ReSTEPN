@@ -186,6 +186,10 @@ class ResultScreen extends StatelessWidget {
                                 ),
                               ],
                             ),
+                            if (session.hasComebackBonus) ...[
+                              const SizedBox(height: 10),
+                              _ComebackBadge(session: session),
+                            ],
                             const SizedBox(height: 16),
                             _ResultLine(
                               icon: Icons.directions_walk,
@@ -290,6 +294,43 @@ class ResultScreen extends StatelessWidget {
                   Navigator.of(context).popUntil((route) => route.isFirst),
             ),
           ),
+        ],
+      ),
+    );
+  }
+}
+
+/// 復帰ボーナスのバッジ。走らなかった日が続いたあとのムーブだけに出る。
+class _ComebackBadge extends StatelessWidget {
+  const _ComebackBadge({required this.session});
+
+  final MoveSession session;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+      decoration: BoxDecoration(
+        color: RS.orange.withValues(alpha: 0.14),
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: RS.orange, width: 2),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              const Icon(Icons.celebration, color: RS.orange, size: 18),
+              const SizedBox(width: 6),
+              Text(S.comebackBonus,
+                  style: RS.label(size: 13, color: RS.orange)),
+            ],
+          ),
+          const SizedBox(height: 4),
+          Text(S.comebackDays(session.comebackGapDays),
+              style: RS.label(size: 11)),
+          Text(S.comebackRate(session.comebackMultiplier),
+              style: RS.label(size: 11)),
         ],
       ),
     );

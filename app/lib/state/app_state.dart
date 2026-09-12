@@ -92,6 +92,11 @@ class AppState extends ChangeNotifier {
     return true;
   }
 
+  // ---- 復帰ボーナス ----
+
+  /// 最後にムーブした日(JST4:00境界の通し番号)。-1 = 記録なし。
+  int lastMoveDayIndex = -1;
+
   // ---- クラブ対抗戦 ----
 
   /// 所属クラブID(null = 未加入)。
@@ -200,6 +205,31 @@ class AppState extends ChangeNotifier {
       _storage.saveDaily(dayKey: _dailyKey, sp: dailyEarnedSp);
     }
   }
+
+  // ---- 復帰ボーナス ----
+
+  /// JST4:00を境界とした「日」の通し番号。日数差を引き算で出すために使う。
+  static int dayIndexFor(DateTime utc) {
+    final jst = utc.add(const Duration(hours: 9));
+    final shifted =
+        jst.subtract(Duration(hours: GameConfig.dailyResetHourJst));
+    return DateTime.utc(shifted.year, shifted.month, shifted.day)
+        .difference(DateTime.utc(1970))
+        .inDays;
+  }
+
+  /// 前回ムーブからの休止日数。今日すでに走っていれば0、初回も0。
+  int get comebackGapDays {
+    if (lastMoveDayIndex < 0) return 0;
+    return max(0, dayIndexFor(DateTime.now().toUtc()) - lastMoveDayIndex);
+  }
+
+  /// 復帰ボーナスによるボックス出現率の倍率(通常は1.0)。
+  double get comebackMultiplier =>
+      GameConfig.comebackMultiplierFor(comebackGapDays);
+
+  /// 次のムーブに復帰ボーナスが乗るか(ホーム画面の表示用)。
+  bool get hasComebackBonus => comebackMultiplier > 1.0;
 
   // ---- クラブ対抗戦 ----
 
@@ -327,6 +357,13 @@ class AppState extends ChangeNotifier {
     _dailyKey = daily?.dayKey ?? '';
     dailyEarnedSp = daily?.sp ?? 0;
     _rolloverDailyIfNeeded();
+
+    // 復帰ボーナスの起点。記録が無い既存ユーザーは直近セッションから復元する
+    // (sessions は新しい順。復元できなければ -1 = ボーナス対象外)。
+    lastMoveDayIndex = await _storage.loadComeback() ??
+        (sessions.isNotEmpty
+            ? dayIndexFor(sessions.first.endedAt.toUtc())
+            : -1);
 
     final savedClub = await _storage.loadClub();
     clubId = savedClub?.clubId;
@@ -753,12 +790,21 @@ class AppState extends ChangeNotifier {
     await _provider?.stop();
     _provider = null;
 
-    // ボックスドロップ判定(幸運値で補正)
+    // 復帰ボーナス: その日の最初のムーブにだけ効く。
+    // lastMoveDayIndex を更新する前に確定させること(更新後は休止0日になる)。
+    final gapDays = comebackGapDays;
+    final comebackMultiplier = GameConfig.comebackMultiplierFor(gapDays);
+    final comebackGuaranteed =
+        GameConfig.comebackGuaranteedFor(gapDays, elapsedSeconds);
+
+    // ボックスドロップ判定(幸運値で補正・復帰ボーナスで倍率と確定枠が乗る)
     final luck = engine.shoe.totalAttr(ShoeAttr.luck, equippedGems(engine.shoe.id));
     final drops = _gemService.rollBoxDrops(
       movedSeconds: elapsedSeconds,
       luck: luck,
       freeSlots: GameConfig.boxSlots - boxes.length,
+      chanceMultiplier: comebackMultiplier,
+      guaranteedDrops: comebackGuaranteed,
     );
     for (var i = 0; i < drops; i++) {
       boxes.add(MysteryBox(
@@ -808,6 +854,7 @@ class AppState extends ChangeNotifier {
       boxesObtained: drops,
       encounters: encounters.length,
       rejectedSamples: engine.rejectedSamples,
+      comebackGapDays: gapDays,
     );
 
     switch (engine.mode) {
@@ -819,6 +866,7 @@ class AppState extends ChangeNotifier {
 
     totalKm += engine.distanceMeters / 1000;
     await _addClubKm(engine.distanceMeters / 1000);
+    lastMoveDayIndex = dayIndexFor(DateTime.now().toUtc());
     sessions.insert(0, session);
     lastResult = session;
     _engine = null;
@@ -832,6 +880,7 @@ class AppState extends ChangeNotifier {
     await _storage.saveBoxes(boxes);
     await _storage.saveDaily(dayKey: _dailyKey, sp: dailyEarnedSp);
     await _storage.saveProfile(name: userName, totalKm: totalKm);
+    await _storage.saveComeback(lastMoveDayIndex: lastMoveDayIndex);
 
     notifyListeners();
     return session;
